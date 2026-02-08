@@ -11,8 +11,8 @@
 #   - Conversation loop with Slack support
 #
 # Usage:
-#   visor run assistant.yaml --event manual    # CLI mode
-#   visor run assistant.yaml --slack           # Slack bot mode
+#   npx -y @probelabs/visor@latest run assistant.yaml --event manual    # CLI mode
+#   npx -y @probelabs/visor@latest run assistant.yaml --slack           # Slack bot mode
 #
 # Customize by:
 #   1. Editing workflows/my-intent-router.yaml for intents and tags

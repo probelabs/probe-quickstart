@@ -6,7 +6,7 @@
 # No intent routing, no dynamic tools - just a basic conversation loop.
 #
 # Usage:
-#   visor run examples/minimal-chat.yaml --event manual
+#   npx -y @probelabs/visor@latest run examples/minimal-chat.yaml --event manual
 #
 # =============================================================================
 

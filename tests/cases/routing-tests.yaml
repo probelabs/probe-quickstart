@@ -5,8 +5,8 @@
 # Test cases for verifying intent routing behavior.
 #
 # Usage:
-#   visor test assistant.yaml
-#   visor test workflows/my-intent-router.yaml
+#   npx -y @probelabs/visor@latest test assistant.yaml
+#   npx -y @probelabs/visor@latest test workflows/my-intent-router.yaml
 #
 # =============================================================================
 

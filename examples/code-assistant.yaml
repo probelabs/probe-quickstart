@@ -9,7 +9,7 @@
 #   - Dynamic tool selection
 #
 # Usage:
-#   visor run examples/code-assistant.yaml --event manual
+#   npx -y @probelabs/visor@latest run examples/code-assistant.yaml --event manual
 #
 # Required Environment Variables:
 #   - ANTHROPIC_API_KEY: sk-ant-...

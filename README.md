@@ -11,34 +11,28 @@ This repository provides a generic, domain-agnostic example you can customize to
 
 ## Quick Start
 
-### 1. Install Visor
-
-```bash
-npm install -g @anthropic/visor
-```
-
-### 2. Clone this repository
+### 1. Clone this repository
 
 ```bash
 git clone https://github.com/probelabs/visor-quickstart.git
 cd visor-quickstart
 ```
 
-### 3. Configure environment
+### 2. Configure environment
 
 ```bash
 cp .env.example .env
 # Edit .env with your API keys
 ```
 
-### 4. Run the assistant
+### 3. Run the assistant
 
 ```bash
 # Run as CLI chat
-visor run assistant.yaml --event manual
+npx -y @probelabs/visor@latest run assistant.yaml --event manual
 
 # Run as Slack bot
-visor run assistant.yaml --slack
+npx -y @probelabs/visor@latest run assistant.yaml --slack
 ```
 
 ## Architecture Overview
@@ -312,7 +306,7 @@ visor-quickstart/
 ### Enable debug mode
 
 ```bash
-visor run assistant.yaml --debug
+npx -y @probelabs/visor@latest run assistant.yaml --debug
 ```
 
 ### Use the logger check

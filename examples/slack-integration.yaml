@@ -5,7 +5,7 @@
 # A Visor assistant configured for Slack with thread support.
 #
 # Usage:
-#   visor run examples/slack-integration.yaml --slack
+#   npx -y @probelabs/visor@latest run examples/slack-integration.yaml --slack
 #
 # Required Environment Variables:
 #   - SLACK_BOT_TOKEN: xoxb-...
