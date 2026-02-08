@@ -1,0 +1,235 @@
+# =============================================================================
+# Intent Routing Tests
+# =============================================================================
+#
+# Test cases for verifying intent routing behavior.
+#
+# Usage:
+#   visor test assistant.yaml
+#   visor test workflows/my-intent-router.yaml
+#
+# =============================================================================
+
+defaults:
+  strict: true
+  ai_provider: mock
+
+cases:
+  # ===========================================================================
+  # Chat Intent Tests
+  # ===========================================================================
+  - name: simple-greeting
+    description: Simple greetings should route to chat intent
+    event: manual
+    fixture: local.minimal
+    workflow_input:
+      question: "Hello!"
+    mocks:
+      classify:
+        intent: chat
+        topic: "Hello!"
+        tags: []
+    expect:
+      workflow_output:
+        - path: intent
+          equals: "chat"
+
+  - name: capabilities-question
+    description: Capabilities questions should have capabilities tag
+    event: manual
+    fixture: local.minimal
+    workflow_input:
+      question: "What can you help me with?"
+    mocks:
+      classify:
+        intent: chat
+        topic: "What can you help me with?"
+        tags: ["capabilities"]
+    expect:
+      workflow_output:
+        - path: intent
+          equals: "chat"
+        - path: tags
+          contains: "capabilities"
+
+  - name: follow-up-question
+    description: Follow-up questions without context go to chat
+    event: manual
+    fixture: local.minimal
+    workflow_input:
+      question: "Thanks, that helps!"
+    mocks:
+      classify:
+        intent: chat
+        topic: "Thanks, that helps!"
+        tags: []
+    expect:
+      workflow_output:
+        - path: intent
+          equals: "chat"
+
+  # ===========================================================================
+  # Code Help Intent Tests
+  # ===========================================================================
+  - name: code-question
+    description: Code questions should route to code_help with codebase tag
+    event: manual
+    fixture: local.minimal
+    workflow_input:
+      question: "How does the authentication system work?"
+    mocks:
+      classify:
+        intent: code_help
+        topic: "How does authentication work?"
+        tags: ["codebase"]
+    expect:
+      workflow_output:
+        - path: intent
+          equals: "code_help"
+        - path: tags
+          contains: "codebase"
+
+  - name: implementation-question
+    description: Implementation questions should route to code_help
+    event: manual
+    fixture: local.minimal
+    workflow_input:
+      question: "Where is the rate limiting middleware implemented?"
+    mocks:
+      classify:
+        intent: code_help
+        topic: "Where is rate limiting middleware implemented?"
+        tags: ["codebase"]
+    expect:
+      workflow_output:
+        - path: intent
+          equals: "code_help"
+
+  - name: debugging-question
+    description: Debugging questions should route to code_help
+    event: manual
+    fixture: local.minimal
+    workflow_input:
+      question: "Why is the API returning 500 errors when I call /users?"
+    mocks:
+      classify:
+        intent: code_help
+        topic: "Why is API returning 500 errors on /users?"
+        tags: ["codebase"]
+    expect:
+      workflow_output:
+        - path: intent
+          equals: "code_help"
+
+  # ===========================================================================
+  # Engineer Tag Tests
+  # ===========================================================================
+  - name: create-pr-request
+    description: PR creation requests should have engineer tag
+    event: manual
+    fixture: local.minimal
+    workflow_input:
+      question: "Create a PR to add a health check endpoint"
+    mocks:
+      classify:
+        intent: code_help
+        topic: "Create a PR for health check endpoint"
+        tags: ["codebase", "engineer"]
+    expect:
+      workflow_output:
+        - path: intent
+          equals: "code_help"
+        - path: tags
+          contains: "engineer"
+        - path: tags
+          contains: "codebase"
+
+  - name: implement-feature-request
+    description: Feature implementation requests should have engineer tag
+    event: manual
+    fixture: local.minimal
+    workflow_input:
+      question: "Implement a new login page with OAuth support"
+    mocks:
+      classify:
+        intent: code_help
+        topic: "Implement login page with OAuth"
+        tags: ["codebase", "engineer"]
+    expect:
+      workflow_output:
+        - path: tags
+          contains: "engineer"
+
+  - name: fix-bug-request
+    description: Bug fix requests should have engineer tag
+    event: manual
+    fixture: local.minimal
+    workflow_input:
+      question: "Fix the bug where users can't logout"
+    mocks:
+      classify:
+        intent: code_help
+        topic: "Fix logout bug"
+        tags: ["codebase", "engineer"]
+    expect:
+      workflow_output:
+        - path: tags
+          contains: "engineer"
+
+  # ===========================================================================
+  # Task Intent Tests
+  # ===========================================================================
+  - name: schedule-reminder
+    description: Schedule requests should have scheduler tag
+    event: manual
+    fixture: local.minimal
+    workflow_input:
+      question: "Remind me in 2 hours to check the build"
+    mocks:
+      classify:
+        intent: task
+        topic: "Set reminder for 2 hours to check build"
+        tags: ["scheduler"]
+    expect:
+      workflow_output:
+        - path: intent
+          equals: "task"
+        - path: tags
+          contains: "scheduler"
+
+  # ===========================================================================
+  # Edge Cases
+  # ===========================================================================
+  - name: ambiguous-question
+    description: Ambiguous questions should still route reasonably
+    event: manual
+    fixture: local.minimal
+    workflow_input:
+      question: "Can you help?"
+    mocks:
+      classify:
+        intent: chat
+        topic: "Can you help?"
+        tags: ["capabilities"]
+    expect:
+      workflow_output:
+        - path: intent
+          equals: "chat"
+
+  - name: code-question-without-asking
+    description: Implicit code questions should still get codebase tag
+    event: manual
+    fixture: local.minimal
+    workflow_input:
+      question: "I'm seeing a null pointer exception in the user service"
+    mocks:
+      classify:
+        intent: code_help
+        topic: "Null pointer exception in user service"
+        tags: ["codebase"]
+    expect:
+      workflow_output:
+        - path: intent
+          equals: "code_help"
+        - path: tags
+          contains: "codebase"

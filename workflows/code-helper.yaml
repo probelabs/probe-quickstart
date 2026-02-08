@@ -1,0 +1,195 @@
+# =============================================================================
+# code-helper: Code Exploration Workflow
+# =============================================================================
+#
+# A simplified wrapper around visor-ee's code-talk workflow for single-project
+# code exploration. Customize for your codebase.
+#
+# For multi-repo exploration with architecture-aware routing, upgrade to
+# visor-ee/code-talk.yaml which includes:
+#   - Multiple project support
+#   - AI-powered project routing
+#   - Documentation integration
+#   - Advanced exploration tools
+# See: https://github.com/probelabs/visor-ee
+#
+# Usage:
+#   As a workflow step:
+#     type: workflow
+#     workflow: code-helper
+#     args:
+#       question: "How does authentication work?"
+#
+#   As an MCP tool (via ai_mcp_servers):
+#     servers['code-helper'] = {
+#       workflow: 'code-helper',
+#       inputs: { question: outputs['ask']?.text }
+#     };
+#
+# =============================================================================
+
+id: code-helper
+name: Code Explorer
+description: |
+  Answer questions about your codebase with AI-powered exploration.
+
+  IMPORTANT: Questions must be SELF-SUFFICIENT. This tool cannot access external
+  URLs (Jira, Zendesk, GitHub API, Confluence). Do NOT paste links - instead,
+  embed all relevant information directly in the question.
+version: "1.0.0"
+
+# For basic single-project exploration, this workflow uses code-talk from visor-ee
+# If you need simpler setup, replace this with direct git-checkout + AI steps
+imports:
+  - https://raw.githubusercontent.com/probelabs/visor-ee/master/workflows/code-talk.yaml
+
+inputs:
+  - name: question
+    required: true
+    description: |
+      The question to answer. Must be SELF-SUFFICIENT - include all relevant
+      context directly (ticket descriptions, error messages, code snippets).
+      Do NOT include URLs to external systems.
+    schema:
+      type: string
+
+# Outputs are auto-propagated from the single step
+# Available: answer, references, projects_explored, checkout_projects
+
+steps:
+  explore:
+    type: workflow
+    workflow: code-talk
+    criticality: internal
+    assume:
+      - "true"
+    args:
+      question: "{{ inputs.question }}"
+
+      # =====================================================================
+      # Architecture Document
+      # =====================================================================
+      # Describe your project structure, key components, and guidelines.
+      # This helps the AI understand your codebase and make better decisions.
+      #
+      # Replace with your own architecture documentation or use {% readfile %}
+      # =====================================================================
+      architecture: |
+        # Project Architecture
+
+        ## Overview
+        This is a template project. Replace this section with your own
+        architecture documentation.
+
+        ## Key Components
+        - `/src` - Source code
+        - `/tests` - Test files
+        - `/docs` - Documentation
+
+        ## Guidelines
+        - Follow existing code patterns
+        - Include tests for new features
+        - Document public APIs
+
+      # =====================================================================
+      # Documentation Repository
+      # =====================================================================
+      # Specify your documentation repo for cross-referencing
+      # =====================================================================
+      docs_repo: your-org/your-docs
+      docs_ref: main
+
+      # =====================================================================
+      # Project Definitions
+      # =====================================================================
+      # Define the code repositories the AI can explore.
+      # For each project, provide:
+      #   - id: unique identifier for routing
+      #   - repo: GitHub repository (owner/repo)
+      #   - description: used by AI for routing decisions
+      #
+      # The AI will automatically select relevant projects based on the question.
+      # =====================================================================
+      projects:
+        - id: main
+          repo: your-org/your-project
+          description: |
+            Main application code:
+            - Core business logic
+            - API endpoints
+            - Data models
+
+        # Add more projects as needed:
+        # - id: frontend
+        #   repo: your-org/frontend
+        #   description: |
+        #     Frontend application:
+        #     - React components
+        #     - State management
+        #     - API integration
+
+        # - id: shared
+        #   repo: your-org/shared-libs
+        #   description: |
+        #     Shared libraries:
+        #     - Common utilities
+        #     - Shared types
+        #     - Reusable components
+
+      # Maximum projects to checkout (default: 3)
+      max_projects: 3
+
+      # =====================================================================
+      # Custom Routing Instructions
+      # =====================================================================
+      # Add domain-specific routing rules if needed
+      # =====================================================================
+      routing_prompt: |
+        When routing questions:
+        - Consider which components the question relates to
+        - Include related projects when functionality spans multiple repos
+        - It's better to include a superset than miss relevant code
+
+      # =====================================================================
+      # Custom Exploration Instructions
+      # =====================================================================
+      # Add project-specific exploration guidelines
+      # =====================================================================
+      exploration_prompt: |
+        When exploring code:
+        - Focus on understanding the implementation details
+        - Provide specific file paths and line numbers
+        - Explain cross-component interactions
+
+# =============================================================================
+# Tests
+# =============================================================================
+tests:
+  defaults:
+    strict: true
+    ai_provider: mock
+
+  cases:
+    - name: basic-code-question
+      event: manual
+      fixture: local.minimal
+      workflow_input:
+        question: "How does authentication work?"
+      mocks:
+        explore:
+          answer:
+            text: "Authentication is implemented using JWT tokens."
+            summary: "JWT-based auth"
+          references:
+            - project: main
+              file: src/auth/jwt.go
+              url: https://github.com/your-org/your-project/blob/main/src/auth/jwt.go
+          projects_explored:
+            - main
+      expect:
+        calls:
+          - step: explore
+            exactly: 1
+        workflow_output:
+          - path: answer.text
+            contains: "JWT"

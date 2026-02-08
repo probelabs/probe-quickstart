@@ -1,0 +1,252 @@
+# =============================================================================
+# Code Assistant Example
+# =============================================================================
+#
+# A full-featured code exploration assistant with:
+#   - Intent routing
+#   - Code exploration via code-helper
+#   - Engineering tasks via engineer workflow
+#   - Dynamic tool selection
+#
+# Usage:
+#   visor run examples/code-assistant.yaml --event manual
+#
+# Required Environment Variables:
+#   - ANTHROPIC_API_KEY: sk-ant-...
+#   - GITHUB_TOKEN: ghp-... (for code checkout and PRs)
+#
+# =============================================================================
+
+version: "1.0"
+
+# Import workflows
+imports:
+  - ../workflows/my-intent-router.yaml
+  - ../workflows/code-helper.yaml
+  - ../workflows/engineer.yaml
+
+checks:
+  # -------------------------------------------------------------------------
+  # Wait for user input
+  # -------------------------------------------------------------------------
+  ask:
+    type: human-input
+    group: assistant
+    criticality: internal
+    prompt: |
+      Hi! I'm a code assistant. I can:
+      - Answer questions about your codebase
+      - Make code changes and create PRs
+      - Help debug and investigate issues
+
+      What would you like to know?
+
+  # -------------------------------------------------------------------------
+  # Route intent
+  # -------------------------------------------------------------------------
+  route-intent:
+    type: workflow
+    group: assistant
+    depends_on: [ask]
+    criticality: internal
+    assume:
+      - "outputs['ask'] != null"
+    guarantee: "output?.intent != null"
+    config: ../workflows/my-intent-router.yaml
+    workflow_inputs:
+      question: "{{ outputs['ask'].text }}"
+    on_success:
+      transitions:
+        - when: "output.intent === 'chat'"
+          to: chat-answer
+        - when: "output.intent === 'code_help'"
+          to: chat-answer
+        - when: "output.intent === 'task'"
+          to: chat-answer
+
+  # -------------------------------------------------------------------------
+  # Generate response with code tools
+  # -------------------------------------------------------------------------
+  chat-answer:
+    type: ai
+    group: assistant
+    depends_on: [route-intent, ask]
+    criticality: policy
+    if: "outputs['route-intent']?.intent != null"
+    guarantee: "(output?.text ?? '').length > 0"
+    schema:
+      type: object
+      properties:
+        text:
+          type: string
+          description: The response to the user
+      required: [text]
+
+    ai:
+      max_iterations: 40
+      skip_code_context: true
+
+    # Dynamic tool selection based on tags
+    ai_mcp_servers_js: |
+      const servers = {};
+      const tags = outputs['route-intent']?.tags || [];
+      const intent = outputs['route-intent']?.intent;
+
+      // Add code exploration for code_help intent or codebase tag
+      if (intent === 'code_help' || tags.includes('codebase')) {
+        servers['code-helper'] = {
+          workflow: 'code-helper',
+          inputs: {
+            question: outputs['ask']?.text || ''
+          }
+        };
+      }
+
+      // Add engineering tool when engineer tag is present
+      if (tags.includes('engineer')) {
+        servers['engineer'] = {
+          workflow: 'engineer',
+          inputs: {}
+        };
+      }
+
+      return servers;
+
+    prompt: |
+      You are a code assistant. You help developers with:
+      - Understanding codebases
+      - Making code changes and creating PRs
+      - Debugging and investigating issues
+
+      <history>
+      {% assign history = '' | chat_history: 'ask', 'chat-answer' %}
+      {% for m in history %}
+      {{ m.role | capitalize }}: {{ m.text }}
+      {% endfor %}
+      </history>
+
+      ## Current Request
+      User: {{ outputs['ask'].text }}
+
+      ## Intent: {{ outputs['route-intent'].intent }}
+      ## Tags: {{ outputs['route-intent'].tags | join: ', ' }}
+
+      {% if outputs['route-intent'].tags contains 'capabilities' %}
+      ## Capabilities
+      I can help with:
+      - **Code Exploration**: Answer questions about the codebase, find implementations
+      - **Engineering Tasks**: Make code changes, create PRs, implement features
+      - **Debugging**: Investigate issues, trace through code, identify root causes
+      {% endif %}
+
+      {% if outputs['route-intent'].intent == 'code_help' or outputs['route-intent'].tags contains 'codebase' %}
+      ## Code Exploration Tool
+
+      You have access to the `code-helper` tool for exploring codebases.
+      Use it to answer code questions before responding.
+
+      **ALWAYS call code-helper FIRST** before answering code questions.
+      Do not answer from memory - use the tool for accurate information.
+      {% endif %}
+
+      {% if outputs['route-intent'].tags contains 'engineer' %}
+      ## Engineer Tool
+
+      You have access to the `engineer` tool for making code changes.
+
+      **Workflow:**
+      1. First use code-helper to explore and understand what needs to change
+      2. Then use engineer with task, context, and project paths
+      3. Report the result (PR link, changes made) to the user
+
+      **Do NOT use engineer for:**
+      - Just investigating code (use code-helper only)
+      - Answering questions without making changes
+      {% endif %}
+
+      ## Guidelines
+      - For code questions: Always use code-helper first
+      - For engineering tasks: Explore first, then engineer
+      - Include file references in your responses
+      - Be specific and provide actionable information
+
+    on_success:
+      goto: ask
+    on_fail:
+      goto: error-handler
+
+  # -------------------------------------------------------------------------
+  # Error handler
+  # -------------------------------------------------------------------------
+  error-handler:
+    type: log
+    group: assistant
+    criticality: info
+    depends_on: []
+    if: "outputs['chat-answer']?.text == null"
+    level: info
+    include_pr_context: false
+    include_dependencies: false
+    include_metadata: false
+    message: |
+      I encountered an issue while processing your request.
+
+      Please try:
+      - Rephrasing with more specific details
+      - Providing more context about what you're looking for
+    on_success:
+      goto: ask
+
+tests:
+  defaults:
+    strict: true
+    ai_provider: mock
+
+  cases:
+    - name: code-question
+      description: Route code questions to chat-answer with code-helper tool
+      flow:
+        - name: code-flow
+          event: manual
+          fixture: local.minimal
+          routing:
+            max_loops: 0
+          mocks:
+            ask[]:
+              - text: "How does authentication work?"
+            route-intent[]:
+              - { intent: code_help, topic: "How does authentication work?", tags: [codebase] }
+            chat-answer[]:
+              - text: "Authentication is implemented using JWT tokens in the auth middleware."
+          expect:
+            calls:
+              - step: ask
+                exactly: 1
+              - step: route-intent
+                exactly: 1
+              - step: chat-answer
+                exactly: 1
+
+    - name: engineer-request
+      description: Route engineering requests with engineer tag
+      flow:
+        - name: engineer-flow
+          event: manual
+          fixture: local.minimal
+          routing:
+            max_loops: 0
+          mocks:
+            ask[]:
+              - text: "Create a PR to add a health check endpoint"
+            route-intent[]:
+              - { intent: code_help, topic: "Create a PR for health check endpoint", tags: [codebase, engineer] }
+            chat-answer[]:
+              - text: "Created PR #123 adding /health endpoint."
+          expect:
+            calls:
+              - step: ask
+                exactly: 1
+              - step: route-intent
+                exactly: 1
+              - step: chat-answer
+                exactly: 1
