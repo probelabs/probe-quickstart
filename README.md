@@ -1,328 +1,347 @@
 # Visor Quickstart
 
-A quickstart template for building AI assistants with [Visor](https://github.com/probelabs/visor).
+Build AI assistants in minutes with a single YAML file.
 
-This repository provides a generic, domain-agnostic example you can customize to build your own AI-powered assistant with:
-- Intent classification and routing
-- Dynamic MCP tool selection
-- Knowledge embedding via docs
-- Multi-repo code exploration
-- Slack integration
-
-## Quick Start
-
-### 1. Clone this repository
+## 2-Minute Quick Start
 
 ```bash
+# 1. Clone and enter
 git clone https://github.com/probelabs/visor-quickstart.git
 cd visor-quickstart
-```
 
-### 2. Configure environment
-
-```bash
+# 2. Set up environment
 cp .env.example .env
-# Edit .env with your API keys
+
+# 3. Add your API key (get one free at https://console.anthropic.com)
+#    Edit .env and set: ANTHROPIC_API_KEY=sk-ant-your-key-here
+
+# 4. Run it!
+npx -y @probelabs/visor@latest run assistant.yaml --message "What can you help me with?"
 ```
 
-### 3. Run the assistant
+That's it! You should see a response from your assistant.
 
+---
+
+## The Complete Example
+
+Here's everything you need - this is what `assistant.yaml` contains:
+
+```yaml
+version: "1.0"
+
+# ==============================================================================
+# IMPORTS - Required: loads the assistant workflow engine from visor-ee
+# ==============================================================================
+# This single import provides:
+#   - Automatic intent classification (routes user requests)
+#   - Skill activation (picks which tools/knowledge to use)
+#   - MCP server wiring (connects to external tools)
+#   - Built-in guidelines (output formatting, error handling)
+#
+# For offline use: download the file and use imports: ["./assistant.yaml"]
+imports:
+  - https://raw.githubusercontent.com/probelabs/visor-ee/master/workflows/assistant.yaml
+
+# Slack config (remove this section if using CLI only)
+slack:
+  version: "v1"
+  mentions: all      # Respond to all @mentions
+  threads: required  # Only respond in threads, not channels
+
+checks:
+  chat:
+    type: workflow
+    workflow: assistant
+    assume: ["true"]
+    args:
+      # ==============================================================================
+      # QUESTION - Where the user's message comes from
+      # ==============================================================================
+      # - CLI mode: from --message argument
+      # - Slack mode: from the message that triggered the bot
+      # This "just works" - no configuration needed
+      question: "{{ conversation.current.text }}"
+
+      # ==============================================================================
+      # SYSTEM PROMPT - Your assistant's identity (keep it short!)
+      # ==============================================================================
+      # Operational guidelines are built-in, so you only need to define:
+      # - Who is this assistant?
+      # - What domain does it specialize in?
+      system_prompt: |
+        You are a helpful AI assistant for software development.
+
+      # ==============================================================================
+      # INTENTS - High-level routing categories
+      # ==============================================================================
+      # These help the AI understand what TYPE of request this is.
+      # Keep them broad - skills handle the specifics.
+      intents:
+        - id: chat
+          description: General Q&A and conversation
+        - id: code_help
+          description: Questions about code or implementation
+        - id: task
+          description: Create, update, or execute something
+
+      # ==============================================================================
+      # SKILLS - The core building blocks of your assistant
+      # ==============================================================================
+      # Each skill is a self-contained capability that activates when needed.
+      #
+      # Skill fields:
+      #   id          - Unique identifier (required)
+      #   description - When to activate this skill (required) - BE SPECIFIC!
+      #   knowledge   - Context injected into the AI's prompt (optional)
+      #   requires    - Other skills to auto-activate, e.g., [code-explorer] (optional)
+      #   tools       - Tools to enable (optional) - see "Tool Types" below
+      #
+      skills:
+        # ----------------------------------------------------------------------
+        # Example 1: Knowledge-only skill (no tools)
+        # ----------------------------------------------------------------------
+        # Just injects context into the prompt when activated
+        - id: capabilities
+          description: user asks what this assistant can do
+          knowledge: |
+            I can help with code exploration, engineering, and Q&A.
+
+        # ----------------------------------------------------------------------
+        # Example 2: Code exploration skill (workflow tool)
+        # ----------------------------------------------------------------------
+        # Uses the code-talk workflow to enable code search
+        - id: code-explorer
+          description: needs codebase exploration or code search
+          knowledge: |
+            Use the code exploration tool to search and understand code.
+            Always provide file paths and line numbers.
+          tools:
+            code-explorer:
+              workflow: code-talk    # Built-in workflow for code exploration
+              inputs:
+                # Projects define which code the AI can search
+                # Supports local paths OR GitHub repos
+                projects:
+                  - name: my-repo        # Name the AI uses to reference this
+                    path: .              # Local path (. = current directory)
+                    description: Current repository
+                  # More examples:
+                  # - name: backend
+                  #   path: /absolute/path/to/backend
+                  # - name: frontend
+                  #   repo: myorg/frontend    # GitHub repo
+                  #   ref: main               # Branch/tag
+
+        # ----------------------------------------------------------------------
+        # Example 3: Skill with external MCP tool
+        # ----------------------------------------------------------------------
+        # Connects to external services via MCP protocol
+        - id: jira
+          description: references Jira tickets
+          knowledge: |
+            Use jira_get_issue to fetch tickets, jira_search for JQL queries.
+          tools:
+            # Tool name (can be anything)
+            jira:
+              # MCP server via command (most common)
+              command: uvx
+              args: ["mcp-atlassian"]
+              env:
+                JIRA_URL: "${JIRA_URL}"
+                JIRA_API_TOKEN: "${JIRA_API_TOKEN}"
+              # Limit which methods the AI can call (security)
+              allowedMethods: [jira_get_issue, jira_search]
+
+        # ----------------------------------------------------------------------
+        # Example 4: Skill with dependencies
+        # ----------------------------------------------------------------------
+        # When this skill activates, it also activates its dependencies
+        - id: engineer
+          description: user wants code changes or a PR created
+          requires: [code-explorer]  # Auto-activates code-explorer too!
+          tools:
+            engineer:
+              # Workflow tool - calls another workflow as a tool
+              workflow: engineer
+              inputs: {}
+```
+
+---
+
+## How Long Until I Can Chat?
+
+| Time | What You Get |
+|------|--------------|
+| **2 min** | Basic assistant running (CLI) |
+| **5 min** | Customized system_prompt for your domain |
+| **15 min** | Add code explorer + your repositories |
+| **30 min** | Add Slack integration |
+| **1 hour** | Add Jira/Zendesk/external integrations |
+
+---
+
+## Tool Types Explained
+
+The `tools` field in skills supports three types:
+
+```yaml
+tools:
+  # TYPE 1: Command (external MCP server)
+  # Runs a command that speaks MCP protocol
+  jira:
+    command: uvx                    # Command to run
+    args: ["mcp-atlassian"]         # Arguments
+    env:                            # Environment variables
+      JIRA_URL: "${JIRA_URL}"
+    allowedMethods: [jira_search]   # Optional: limit available methods
+
+  # TYPE 2: Workflow (internal workflow as tool)
+  # Calls another workflow defined in imports
+  engineer:
+    workflow: engineer              # Workflow ID from imports
+    inputs: {}                      # Inputs to pass
+
+  # TYPE 3: Built-in tool
+  # Uses a tool built into Visor
+  scheduler:
+    tool: schedule                  # Built-in tool name
+```
+
+---
+
+## Loading External Config Files
+
+For larger configurations, split into multiple files:
+
+```yaml
+# assistant.yaml
+skills:
+  expression: "loadConfig('config/skills.yaml')"
+```
+
+```yaml
+# config/skills.yaml - can use {% readfile %} for knowledge
+- id: jira
+  description: Jira ticket access
+  knowledge: |
+    {% readfile "docs/jira-guide.md" %}
+  tools:
+    jira:
+      command: uvx
+      args: ["mcp-atlassian"]
+```
+
+---
+
+## Troubleshooting
+
+### "No AI provider configured"
+Your API key isn't set. Check:
 ```bash
-# Run as CLI chat
-npx -y @probelabs/visor@latest run assistant.yaml --event manual
+cat .env | grep API_KEY
+```
+Make sure you have `ANTHROPIC_API_KEY=sk-ant-...` (not commented out with #)
 
-# Run as Slack bot
-npx -y @probelabs/visor@latest run assistant.yaml --slack
+### "Unable to fetch workflow" or network errors
+The imports URL must be accessible. Check your internet connection, or download the workflow locally:
+```bash
+curl -o workflows/assistant.yaml https://raw.githubusercontent.com/probelabs/visor-ee/master/workflows/assistant.yaml
+```
+Then change imports to: `imports: ["./workflows/assistant.yaml"]`
+
+### "conversation.current.text is undefined"
+You forgot `--message` in CLI mode:
+```bash
+# Wrong:
+visor run assistant.yaml
+
+# Right:
+visor run assistant.yaml --message "Hello"
 ```
 
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         User Message                             │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      Intent Router                               │
-│  Classifies: intent (chat, code_help, task) + tags              │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   Dynamic Tool Selection                         │
-│  Based on tags → loads MCP servers, workflows-as-tools          │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Knowledge Embedding                           │
-│  Based on tags → injects relevant docs into prompt              │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                       AI Response                                │
-│  Uses tools + knowledge to generate answer                       │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## Key Concepts
-
-### 1. Intent Router
-
-The intent router classifies user messages into intents and tags:
-
+### Skill doesn't activate for my question
+The skill's `description` field must match what the user is asking. Make it more specific:
 ```yaml
-route-intent:
-  type: workflow
-  config: workflows/my-intent-router.yaml
-  workflow_inputs:
-    question: "{{ outputs['ask'].text }}"
+# Too vague - might not activate:
+- id: jira
+  description: ticket stuff
+
+# Better - clear trigger:
+- id: jira
+  description: user mentions Jira, ticket IDs like PROJ-123, or needs ticket information
 ```
 
-**Intents** determine the high-level flow (chat, code exploration, task execution).
+### Slack bot not responding
+1. Check both tokens are set in `.env`: `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN`
+2. Make sure you're mentioning the bot in a thread (not a channel message)
+3. Run with `--slack` flag: `visor run assistant.yaml --slack`
 
-**Tags** modify behavior by enabling specific tools or injecting knowledge.
-
-See `workflows/my-intent-router.yaml` for customization.
-
-### 2. Dynamic MCP Tool Selection
-
-Tools are loaded conditionally based on tags using `ai_mcp_servers_js`:
-
-```javascript
-ai_mcp_servers_js: |
-  const servers = {};
-  const tags = outputs['route-intent']?.tags || [];
-
-  // Add Jira when 'jira' tag is present
-  if (tags.includes('jira')) {
-    servers.atlassian = {
-      command: "uvx",
-      args: ["mcp-atlassian"],
-      env: {
-        JIRA_URL: "${JIRA_URL}",
-        JIRA_USERNAME: "${JIRA_USERNAME}",
-        JIRA_API_TOKEN: "${JIRA_API_TOKEN}"
-      }
-    };
-  }
-
-  // Add code exploration when 'codebase' tag is present
-  if (tags.includes('codebase')) {
-    servers['code-helper'] = {
-      workflow: 'code-helper',
-      inputs: { question: outputs['ask']?.text }
-    };
-  }
-
-  return servers;
-```
-
-**External MCP servers** have a `command` property (e.g., `uvx mcp-atlassian`).
-
-**Workflow tools** have a `workflow` property (e.g., `workflow: 'code-helper'`).
-
-### 3. Knowledge Embedding
-
-Inject contextual knowledge based on tags using `{% readfile %}`:
-
-```yaml
-prompt: |
-  You are an AI assistant.
-
-  {% if outputs['route-intent'].tags contains 'capabilities' %}
-  {% readfile "docs/capabilities.md" %}
-  {% endif %}
-
-  {% if outputs['route-intent'].tags contains 'codebase' %}
-  {% readfile "docs/code-exploration.md" %}
-  {% endif %}
-
-  User: {{ outputs['ask'].text }}
-```
-
-This pattern keeps prompts focused and relevant to the current request.
-
-### 4. Workflow-as-Tool Pattern
-
-Expose workflows as MCP tools for the AI to call:
-
-```javascript
-servers['my-workflow'] = {
-  workflow: 'my-workflow-id',
-  inputs: {
-    param1: 'value1',
-    param2: outputs['ask']?.text
-  }
-};
-```
-
-The AI can then call this workflow like any other tool.
-
-## Customization Guide
-
-### Adding a New Intent
-
-1. Edit `workflows/my-intent-router.yaml`:
-
-```yaml
-intents:
-  - id: my_new_intent
-    description: |
-      When to use this intent:
-      - Specific trigger conditions
-      - Example phrases
-```
-
-2. Add routing in `assistant.yaml`:
-
-```yaml
-on_success:
-  transitions:
-    - when: "output.intent === 'my_new_intent'"
-      to: my-new-handler
-```
-
-### Adding a New Tag
-
-1. Edit `workflows/my-intent-router.yaml`:
-
-```yaml
-tags:
-  - id: my_new_tag
-    description: Apply when user needs this capability
-```
-
-2. Use the tag in `assistant.yaml`:
-
-```yaml
-# In ai_mcp_servers_js
-if (tags.includes('my_new_tag')) {
-  servers['my-tool'] = { ... };
-}
-
-# In prompt
-{% if outputs['route-intent'].tags contains 'my_new_tag' %}
-{% readfile "docs/my-new-capability.md" %}
-{% endif %}
-```
-
-### Adding External MCP Tools
-
-```javascript
-if (tags.includes('my_tag')) {
-  servers.my_mcp_server = {
-    command: "npx",
-    args: ["-y", "my-mcp-package"],
-    env: {
-      API_KEY: "${MY_API_KEY}"
-    },
-    // Optional: limit which methods are available
-    allowedMethods: ["method1", "method2"]
-  };
-}
-```
-
-### Adding Knowledge Documents
-
-1. Create a new file in `docs/`:
-
-```markdown
-# docs/my-feature.md
-
-## My Feature Instructions
-
-When handling requests about this feature:
-- Guideline 1
-- Guideline 2
-```
-
-2. Reference it in the prompt:
-
-```yaml
-{% if outputs['route-intent'].tags contains 'my_feature' %}
-{% readfile "docs/my-feature.md" %}
-{% endif %}
-```
+---
 
 ## Examples
 
-| Example | Description |
-|---------|-------------|
-| `examples/minimal-chat.yaml` | Simplest possible chat setup |
-| `examples/slack-integration.yaml` | Slack bot configuration |
-| `examples/code-assistant.yaml` | Full code exploration setup |
+| File | Description | Use When |
+|------|-------------|----------|
+| `assistant.yaml` | Full-featured assistant | Starting point for real projects |
+| `examples/minimal.yaml` | ~25 lines, just chat | Learning the basics |
+| `examples/with-jira.yaml` | Jira integration | Adding external tools |
+| `examples/multi-repo.yaml` | Multiple code repos | Exploring large codebases |
 
-## Advanced Features (visor-ee)
+---
 
-This quickstart uses simplified versions of workflows. For production use, consider upgrading to [visor-ee](https://github.com/probelabs/visor-ee) which includes:
+## Configuration Reference
 
-| Feature | Quickstart | visor-ee |
-|---------|------------|----------|
-| Intent Router | Basic intents + tags | Explicit markers (#tag, %intent), confidence scoring, multi-intent |
-| Code Explorer | Single project | Multi-repo with architecture-aware routing |
-| Integrations | Manual setup | Pre-built Jira, Confluence, Zendesk, GitHub |
+### Skill Fields
 
-To use visor-ee workflows:
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | Yes | Unique identifier |
+| `description` | Yes | When to activate (be specific!) |
+| `knowledge` | No | Context injected into prompt |
+| `requires` | No | Array of skill IDs to auto-activate |
+| `tools` | No | Tools to enable when skill activates |
 
-```yaml
-imports:
-  - https://raw.githubusercontent.com/probelabs/visor-ee/master/workflows/intent-router.yaml
-  - https://raw.githubusercontent.com/probelabs/visor-ee/master/workflows/code-talk.yaml
-```
+### Tool Fields
 
-## Directory Structure
+| Field | Description |
+|-------|-------------|
+| `command` | Command to run (for external MCP servers) |
+| `args` | Command arguments |
+| `env` | Environment variables (use `${VAR}` syntax) |
+| `allowedMethods` | Limit which methods AI can call |
+| `workflow` | Workflow ID (for workflow-as-tool) |
+| `inputs` | Inputs to pass to workflow |
+| `tool` | Built-in tool name |
 
-```
-visor-quickstart/
-├── README.md                      # This file
-├── assistant.yaml                 # Main workflow config
-├── .env.example                   # Environment variables template
-│
-├── docs/                          # Knowledge documents
-│   ├── capabilities.md            # What the assistant can do
-│   ├── code-exploration.md        # Code tool instructions
-│   └── custom-knowledge.md        # Example domain knowledge
-│
-├── workflows/                     # Reusable workflow components
-│   ├── my-intent-router.yaml      # Intent router configuration
-│   ├── code-helper.yaml           # Code exploration wrapper
-│   └── engineer.yaml              # Code modification workflow
-│
-├── examples/                      # Example configurations
-│   ├── minimal-chat.yaml          # Simplest chat setup
-│   ├── slack-integration.yaml     # Slack bot example
-│   └── code-assistant.yaml        # Full code exploration
-│
-└── tests/                         # Test cases
-    └── cases/
-        └── routing-tests.yaml     # Intent routing tests
-```
+### Code Exploration (code-talk workflow)
 
-## Debugging
+For code exploration, use a workflow tool with `workflow: code-talk`:
 
-### Enable debug mode
+| Input Field | Description |
+|-------------|-------------|
+| `projects` | Array of repositories to search |
+| `projects[].name` | Identifier for the AI |
+| `projects[].path` | Local filesystem path |
+| `projects[].repo` | GitHub repo (e.g., `owner/repo`) |
+| `projects[].ref` | Branch or tag (default: main) |
+| `projects[].description` | What this repo contains |
+| `architecture` | Architecture documentation (optional) |
+| `docs_repo` | Documentation repository (optional) |
 
-```bash
-npx -y @probelabs/visor@latest run assistant.yaml --debug
-```
+---
 
-### Use the logger check
+## Built-in Features
 
-```yaml
-debug-flow:
-  type: logger
-  depends_on: [route-intent]
-  message: |
-    Intent: {{ outputs['route-intent'].intent }}
-    Tags: {{ outputs['route-intent'].tags | json }}
-```
+The assistant workflow includes:
 
-### Check AI tool calls
+- **Automatic routing** - Classifies intent and activates relevant skills
+- **Tool merging** - Same-named tools merge their `allowedMethods`
+- **Dependency expansion** - `requires` auto-activates other skills
+- **Built-in guidelines** - Output formatting, URL handling, error messages
+- **Thread context** - Slack history automatically considered
 
-Look for `ai_mcp_servers_js` output in debug logs to see which tools were loaded.
+---
 
 ## Support
 

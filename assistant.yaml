@@ -2,362 +2,299 @@
 # Visor Quickstart Assistant
 # =============================================================================
 #
-# A template for building AI assistants with Visor.
-#
-# Features:
-#   - Intent classification and routing
-#   - Dynamic MCP tool selection based on tags
-#   - Knowledge embedding via docs
-#   - Conversation loop with Slack support
-#
-# Usage:
-#   npx -y @probelabs/visor@latest run assistant.yaml --event manual    # CLI mode
-#   npx -y @probelabs/visor@latest run assistant.yaml --slack           # Slack bot mode
-#
-# Customize by:
-#   1. Editing workflows/my-intent-router.yaml for intents and tags
-#   2. Adding MCP servers in ai_mcp_servers_js below
-#   3. Adding knowledge docs in the docs/ folder
+# A complete AI assistant in a single file. Customize and run:
+#   npx -y @probelabs/visor@latest run assistant.yaml --message "Hello"
+#   npx -y @probelabs/visor@latest run assistant.yaml --slack
 #
 # =============================================================================
 
 version: "1.0"
 
-# Import reusable workflows
-# These are referenced by name in workflow steps and ai_mcp_servers
+# =============================================================================
+# IMPORTS - Load the assistant workflow engine
+# =============================================================================
+# This provides all the "magic":
+#   - Intent classification (understands what user wants)
+#   - Skill activation (picks which tools/knowledge to use)
+#   - MCP server wiring (connects to external tools)
+#   - Built-in guidelines (output formatting, error handling)
+#
+# For offline use, download and change to: imports: ["./workflows/assistant.yaml"]
 imports:
-  - workflows/my-intent-router.yaml
-  - workflows/code-helper.yaml
-  - workflows/engineer.yaml
+  - https://raw.githubusercontent.com/probelabs/visor-ee/master/workflows/assistant.yaml
 
-# Slack configuration (optional - remove if not using Slack)
+# =============================================================================
+# SLACK CONFIG (remove if CLI-only)
+# =============================================================================
+# Requires SLACK_BOT_TOKEN and SLACK_APP_TOKEN in .env
+# See .env.example for setup instructions
 slack:
   version: "v1"
-  mentions: all
-  threads: required
+  mentions: all      # Respond to @mentions
+  threads: required  # Only respond in threads (not channel messages)
 
 # =============================================================================
-# Checks (workflow steps)
+# MAIN WORKFLOW
 # =============================================================================
 checks:
-  # -------------------------------------------------------------------------
-  # Step 1: Wait for user input
-  # -------------------------------------------------------------------------
-  ask:
-    type: human-input
-    group: assistant
-    criticality: internal
-    prompt: |
-      Hi! I'm your AI assistant. How can I help you today?
-
-  # -------------------------------------------------------------------------
-  # Step 2: Classify intent and tags
-  # -------------------------------------------------------------------------
-  route-intent:
+  chat:
     type: workflow
-    group: assistant
-    depends_on: [ask]
-    criticality: internal
-    assume:
-      - "outputs['ask'] != null"
-    guarantee: "output?.intent != null"
-    config: workflows/my-intent-router.yaml
-    workflow_inputs:
-      question: "{{ outputs['ask'].text }}"
-    on_success:
-      transitions:
-        # Route all intents to the unified chat-answer agent
-        - when: "output.intent === 'chat'"
-          to: chat-answer
-        - when: "output.intent === 'code_help'"
-          to: chat-answer
-        - when: "output.intent === 'task'"
-          to: chat-answer
-
-  # -------------------------------------------------------------------------
-  # Step 3: Generate response with dynamic tools
-  # -------------------------------------------------------------------------
-  chat-answer:
-    type: ai
-    group: assistant
-    depends_on: [route-intent, ask]
+    workflow: assistant
     criticality: policy
-    if: |
-      outputs['route-intent']?.intent === 'chat' ||
-      outputs['route-intent']?.intent === 'code_help' ||
-      outputs['route-intent']?.intent === 'task'
-    guarantee: "(output?.text ?? '').length > 0"
-    schema:
-      type: object
-      properties:
-        text:
-          type: string
-          description: The response to the user
-      required: [text]
+    assume: ["true"]
+    guarantee: "output?.text != null"
+    args:
+      # =========================================================================
+      # QUESTION - The user's message
+      # =========================================================================
+      # Automatically populated from:
+      #   - CLI: --message "your question"
+      #   - Slack: the message that mentioned the bot
+      # You don't need to change this.
+      question: "{{ conversation.current.text }}"
 
-    ai:
-      max_iterations: 30
-      skip_code_context: true
+      # =========================================================================
+      # SYSTEM PROMPT - Who is your assistant?
+      # =========================================================================
+      # Keep this SHORT - just identity and domain.
+      # Operational guidelines (be helpful, cite sources, etc.) are built-in.
+      system_prompt: |
+        You are a helpful AI assistant for software development.
 
-    # =========================================================================
-    # Dynamic MCP server and tool selection based on tags
-    # =========================================================================
-    # This is where the magic happens! Tools are loaded conditionally based on
-    # the tags assigned by the intent router.
-    #
-    # Two types of tools:
-    #   1. External MCP servers: { command: "...", args: [...], env: {...} }
-    #   2. Workflow tools: { workflow: "workflow-id", inputs: {...} }
-    #
-    # To add a new tool:
-    #   1. Add a tag to workflows/my-intent-router.yaml
-    #   2. Add the tool logic below
-    # =========================================================================
-    ai_mcp_servers_js: |
-      const servers = {};
-      const tags = outputs['route-intent']?.tags || [];
-      const intent = outputs['route-intent']?.intent;
+      # =========================================================================
+      # INTENTS - High-level request categories
+      # =========================================================================
+      # Help the AI understand the TYPE of request.
+      # Skills handle the specifics - intents are just broad categories.
+      intents:
+        - id: chat
+          description: |
+            General Q&A, follow-up questions, small talk, or simple requests.
+            Includes capabilities questions and summaries.
 
-      // =====================================================================
-      // External MCP Servers
-      // =====================================================================
+        - id: code_help
+          description: |
+            Questions about code, implementation, architecture, or debugging.
+            Use when the user needs to understand or explore code.
 
-      // Example: Jira integration via mcp-atlassian
-      // Uncomment and configure to enable Jira/Confluence access
-      //
-      // if (tags.includes('jira') || tags.includes('confluence')) {
-      //   servers.atlassian = {
-      //     command: "uvx",
-      //     args: ["mcp-atlassian"],
-      //     env: {
-      //       JIRA_URL: "${JIRA_URL}",
-      //       JIRA_USERNAME: "${JIRA_USERNAME}",
-      //       JIRA_API_TOKEN: "${JIRA_API_TOKEN}",
-      //       CONFLUENCE_URL: "${CONFLUENCE_URL}",
-      //       CONFLUENCE_USERNAME: "${CONFLUENCE_USERNAME}",
-      //       CONFLUENCE_API_TOKEN: "${CONFLUENCE_API_TOKEN}"
-      //     },
-      //     allowedMethods: [
-      //       "jira_get_issue",
-      //       "jira_search",
-      //       "jira_create_issue",
-      //       "confluence_get_page",
-      //       "confluence_search"
-      //     ]
-      //   };
-      // }
+        - id: task
+          description: |
+            User wants to create, update, or execute something.
+            Includes creating tickets, making code changes, or running tasks.
 
-      // Example: Zendesk integration
-      // Uncomment and configure to enable Zendesk access
-      //
-      // if (tags.includes('zendesk')) {
-      //   servers.zendesk = {
-      //     command: "uvx",
-      //     args: ["mcp-zendesk"],
-      //     env: {
-      //       ZENDESK_SUBDOMAIN: "${ZENDESK_SUBDOMAIN}",
-      //       ZENDESK_EMAIL: "${ZENDESK_EMAIL}",
-      //       ZENDESK_API_KEY: "${ZENDESK_API_KEY}"
-      //     }
-      //   };
-      // }
+      # =========================================================================
+      # SKILLS - Your assistant's capabilities
+      # =========================================================================
+      # Each skill bundles:
+      #   - description: WHEN to activate (be specific!)
+      #   - knowledge: context injected into the prompt
+      #   - requires: other skills to auto-activate
+      #   - tools: MCP tools to enable (command, workflow, or built-in types)
+      #
+      # The AI automatically picks relevant skills based on the user's question.
+      # =========================================================================
+      skills:
+        # -----------------------------------------------------------------------
+        # CAPABILITIES - What can you do?
+        # -----------------------------------------------------------------------
+        - id: capabilities
+          description: user asks what this assistant can do or about its capabilities
+          knowledge: |
+            ## What I Can Do
+            I'm an AI assistant that can help you with:
+            - **Code Exploration**: Search and understand codebases
+            - **Engineering**: Make code changes and create PRs
+            - **General Q&A**: Answer questions and have conversations
+            - **Task Execution**: Run scheduled tasks and reminders
 
-      // =====================================================================
-      // Workflow Tools
-      // =====================================================================
+            Just ask me anything!
 
-      // Code exploration tool - add when codebase tag is present
-      if (intent === 'code_help' || tags.includes('codebase')) {
-        servers['code-helper'] = {
-          workflow: 'code-helper',
-          inputs: {
-            question: outputs['ask']?.text || ''
-          }
-        };
-      }
+        # -----------------------------------------------------------------------
+        # CODE EXPLORER - Search and understand code
+        # -----------------------------------------------------------------------
+        # CODE EXPLORER - Search and understand code
+        # -----------------------------------------------------------------------
+        # Uses the code-talk workflow to provide code exploration capabilities.
+        # The workflow: code-talk server connects to the shared code-talk workflow.
+        - id: code-explorer
+          description: request needs codebase exploration, code search, or implementation details
+          knowledge: |
+            ## Code Exploration
+            You have access to a code exploration tool that can:
+            - Search across repositories for code patterns
+            - Find function/class definitions
+            - Understand how features are implemented
+            - Trace data flow between components
 
-      // Engineering tool - add when engineer tag is present
-      // This allows the AI to make code changes and create PRs
-      if (tags.includes('engineer')) {
-        servers['engineer'] = {
-          workflow: 'engineer',
-          inputs: {}
-        };
-      }
+            Always provide specific file paths and line numbers in your answers.
+          tools:
+            code-explorer:
+              workflow: code-talk
+              inputs:
+                # Define which repositories the AI can search
+                projects:
+                  - name: this-repo
+                    path: .
+                    description: The current repository
+                  # Add more repositories:
+                  # - name: backend
+                  #   path: /path/to/backend
+                  #   description: Backend API server
+                  # - name: docs
+                  #   repo: myorg/docs        # GitHub repo
+                  #   ref: main               # Branch
+                  #   description: Documentation
 
-      // Built-in scheduler tool - add when scheduler tag is present
-      // Enables reminders and scheduled task execution
-      if (tags.includes('scheduler')) {
-        servers['schedule'] = { tool: 'schedule' };
-      }
+        # -----------------------------------------------------------------------
+        # ENGINEER - Make code changes
+        # -----------------------------------------------------------------------
+        - id: engineer
+          description: user wants code changes made, a PR created, or feature implemented
+          requires: [code-explorer]  # Auto-activates code-explorer
+          knowledge: |
+            ## Engineering Tool
+            You can make code changes using the engineer tool:
+            - Create new files or modify existing ones
+            - Run tests and fix issues
+            - Create pull requests
 
-      return servers;
+            Always explore the codebase first to understand the context,
+            then use the engineer tool to make changes.
+          tools:
+            engineer:
+              workflow: engineer
+              inputs: {}
 
-    # =========================================================================
-    # Prompt with dynamic knowledge embedding
-    # =========================================================================
-    # Knowledge is injected based on tags using {% readfile %} conditionals.
-    # This keeps prompts focused and relevant to the current request.
-    #
-    # To add new knowledge:
-    #   1. Create a doc in docs/my-topic.md
-    #   2. Add a tag to workflows/my-intent-router.yaml
-    #   3. Add a readfile conditional below
-    # =========================================================================
-    prompt: |
-      You are an AI assistant. You help users with:
-      - Answering questions and having conversations
-      - Exploring and understanding code
-      - Executing tasks and making changes
+        # -----------------------------------------------------------------------
+        # SCHEDULER - Reminders and scheduled tasks
+        # -----------------------------------------------------------------------
+        - id: scheduler
+          description: user wants to schedule, list, or cancel reminders or scheduled tasks
+          knowledge: |
+            ## Scheduler
+            You can schedule tasks and reminders:
+            - Set one-time reminders: "remind me in 30 minutes"
+            - Set recurring tasks: "every Monday at 9am"
+            - List and cancel scheduled items
+          tools:
+            schedule:
+              tool: schedule
 
-      <history>
-      {% assign history = '' | chat_history: 'ask', 'chat-answer' %}
-      {% for m in history %}
-      {{ m.role | capitalize }}: {{ m.text }}
-      {% endfor %}
-      </history>
-
-      ## Current Request
-      User: {{ outputs['ask'].text }}
-
-      ## Intent: {{ outputs['route-intent'].intent }}
-      ## Tags: {{ outputs['route-intent'].tags | join: ', ' }}
-
-      {# ===================================================================== #}
-      {# Knowledge Embedding                                                   #}
-      {# Inject relevant documentation based on tags                           #}
-      {# ===================================================================== #}
-
-      {% if outputs['route-intent'].tags contains 'capabilities' %}
-      {% readfile "docs/capabilities.md" %}
-      {% endif %}
-
-      {% if outputs['route-intent'].intent == 'code_help' or outputs['route-intent'].tags contains 'codebase' %}
-      {% readfile "docs/code-exploration.md" %}
-      {% endif %}
-
-      {% if outputs['route-intent'].tags contains 'engineer' %}
-      {% readfile "docs/engineer-tool.md" %}
-      {% endif %}
-
-      {# Add your custom knowledge documents here #}
-      {# Example: #}
-      {# {% if outputs['route-intent'].tags contains 'my_feature' %} #}
-      {# {% readfile "docs/my-feature.md" %} #}
-      {# {% endif %} #}
-
-      ## Guidelines
-      - Be helpful and concise
-      - For code questions: Use the code-helper tool to explore the codebase
-      - For engineering tasks: First explore with code-helper, then use engineer
-      - When uncertain, ask clarifying questions
-
-    on_success:
-      goto: ask
-    on_fail:
-      goto: error-handler
-
-  # -------------------------------------------------------------------------
-  # Error handler
-  # -------------------------------------------------------------------------
-  error-handler:
-    type: log
-    group: assistant
-    criticality: info
-    depends_on: []
-    if: "outputs['chat-answer']?.text == null"
-    level: info
-    include_pr_context: false
-    include_dependencies: false
-    include_metadata: false
-    message: |
-      I encountered an issue while processing your request.
-
-      Please try:
-      - Rephrasing with more specific details
-      - Providing more context about what you're trying to do
-
-      If this keeps happening, check the Visor logs for more details.
-    on_success:
-      goto: ask
+        # =====================================================================
+        # ADD YOUR CUSTOM SKILLS BELOW
+        # =====================================================================
+        #
+        # Example: Jira integration
+        # - id: jira
+        #   description: user mentions Jira, ticket IDs like PROJ-123, or needs ticket info
+        #   knowledge: |
+        #     ## Jira Tools
+        #     - jira_get_issue: Get ticket details by key
+        #     - jira_search: Search with JQL queries
+        #     - jira_create_issue: Create new tickets
+        #   tools:
+        #     jira:
+        #       command: uvx
+        #       args: ["mcp-atlassian"]
+        #       env:
+        #         JIRA_URL: "${JIRA_URL}"
+        #         JIRA_USERNAME: "${JIRA_USERNAME}"
+        #         JIRA_API_TOKEN: "${JIRA_API_TOKEN}"
+        #       allowedMethods:
+        #         - jira_get_issue
+        #         - jira_search
+        #         - jira_create_issue
+        #
+        # Example: Knowledge-only skill (no tools)
+        # - id: company-policies
+        #   description: questions about company policies, HR, or procedures
+        #   knowledge: |
+        #     ## Company Policies
+        #     - PTO: 20 days per year
+        #     - Remote work: Flexible, coordinate with team
+        #     - Expenses: Submit within 30 days
 
 # =============================================================================
-# Tests
+# TESTS
 # =============================================================================
+# Run tests: npx -y @probelabs/visor@latest test assistant.yaml
 tests:
   defaults:
     strict: true
     ai_provider: mock
 
   cases:
-    - name: route-to-chat
-      description: Route general chat to chat-answer
+    - name: basic-chat
+      description: Route general chat correctly
       flow:
         - name: chat-flow
           event: manual
           fixture: local.minimal
           routing:
             max_loops: 0
+          execution_context:
+            conversation:
+              transport: cli
+              thread: { id: "test-1" }
+              messages: [{ role: user, text: "Hello, how are you?", timestamp: "2024-01-01T00:00:00Z" }]
+              current: { role: user, text: "Hello, how are you?", timestamp: "2024-01-01T00:00:00Z" }
+              attributes: { source: cli }
           mocks:
-            ask[]:
-              - text: "Hello, how are you?"
-            route-intent[]:
-              - { intent: chat, topic: "Hello, how are you?", tags: [] }
-            chat-answer[]:
+            chat[]:
               - text: "Hello! I'm doing well. How can I help you today?"
+              - intent: chat
+              - skills: []
           expect:
             calls:
-              - step: ask
-                exactly: 1
-              - step: route-intent
-                exactly: 1
-              - step: chat-answer
+              - step: chat
                 exactly: 1
 
-    - name: route-to-code-help
-      description: Route code questions to chat-answer with codebase tag
+    - name: code-exploration
+      description: Activate code-explorer skill for code questions
       flow:
         - name: code-flow
           event: manual
           fixture: local.minimal
           routing:
             max_loops: 0
+          execution_context:
+            conversation:
+              transport: cli
+              thread: { id: "test-2" }
+              messages: [{ role: user, text: "How does authentication work?", timestamp: "2024-01-01T00:00:00Z" }]
+              current: { role: user, text: "How does authentication work?", timestamp: "2024-01-01T00:00:00Z" }
+              attributes: { source: cli }
           mocks:
-            ask[]:
-              - text: "How does the authentication system work?"
-            route-intent[]:
-              - { intent: code_help, topic: "How does authentication work?", tags: [codebase] }
-            chat-answer[]:
-              - text: "Authentication is handled via JWT tokens in the auth middleware."
+            chat[]:
+              - text: "Authentication is handled via JWT tokens."
+              - intent: code_help
+              - skills: [code-explorer]
           expect:
             calls:
-              - step: ask
-                exactly: 1
-              - step: route-intent
-                exactly: 1
-              - step: chat-answer
+              - step: chat
                 exactly: 1
 
-    - name: route-to-capabilities
-      description: Route capabilities questions with capabilities tag
+    - name: capabilities-skill
+      description: Activate capabilities skill when asked what assistant can do
       flow:
         - name: capabilities-flow
           event: manual
           fixture: local.minimal
           routing:
             max_loops: 0
+          execution_context:
+            conversation:
+              transport: cli
+              thread: { id: "test-3" }
+              messages: [{ role: user, text: "What can you help me with?", timestamp: "2024-01-01T00:00:00Z" }]
+              current: { role: user, text: "What can you help me with?", timestamp: "2024-01-01T00:00:00Z" }
+              attributes: { source: cli }
           mocks:
-            ask[]:
-              - text: "What can you help me with?"
-            route-intent[]:
-              - { intent: chat, topic: "What can you help me with?", tags: [capabilities] }
-            chat-answer[]:
-              - text: "I can help with code exploration, task execution, and general Q&A."
+            chat[]:
+              - text: "I can help with code exploration, engineering, and more!"
+              - intent: chat
+              - skills: [capabilities]
           expect:
             calls:
-              - step: ask
-                exactly: 1
-              - step: route-intent
-                exactly: 1
-              - step: chat-answer
+              - step: chat
                 exactly: 1

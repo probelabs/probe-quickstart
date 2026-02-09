@@ -1,0 +1,94 @@
+# =============================================================================
+# Multi-Repository Code Explorer
+# =============================================================================
+# Shows how to configure code exploration across multiple repositories.
+# Supports local paths and GitHub repos.
+#
+# Optional in .env (for private GitHub repos):
+#   GITHUB_TOKEN=ghp_your-token
+#
+# Run:
+#   npx -y @probelabs/visor@latest run examples/multi-repo.yaml --message "How does auth work?"
+#
+# =============================================================================
+
+version: "1.0"
+
+imports:
+  - https://raw.githubusercontent.com/probelabs/visor-ee/master/workflows/assistant.yaml
+
+checks:
+  chat:
+    type: workflow
+    workflow: assistant
+    assume: ["true"]
+    args:
+      question: "{{ conversation.current.text }}"
+
+      system_prompt: "You are a code exploration assistant for our microservices."
+
+      intents:
+        - id: chat
+          description: General conversation
+        - id: code_help
+          description: Questions about code, implementation, or architecture
+
+      skills:
+        - id: code-explorer
+          description: |
+            needs codebase exploration, code search, implementation details,
+            or wants to understand how something works in the code
+          knowledge: |
+            ## Code Exploration
+            You can search and explore multiple repositories:
+            - Search for functions, classes, or patterns
+            - Understand how features are implemented
+            - Trace data flow between services
+            - Find where things are defined
+
+            Always provide specific file paths and line numbers.
+            When exploring across repos, mention which repo each file is from.
+          tools:
+            code-explorer:
+              workflow: code-talk
+              inputs:
+                # Define all repositories the AI can search
+                projects:
+                  # Local repository (current directory)
+                  - name: current
+                    path: .
+                    description: Current working directory
+
+                  # More local repositories (uncomment and customize):
+                  # - name: backend
+                  #   path: /home/user/projects/backend
+                  #   description: |
+                  #     Backend API server:
+                  #     - REST endpoints
+                  #     - Database models
+                  #     - Authentication
+
+                  # - name: frontend
+                  #   path: /home/user/projects/frontend
+                  #   description: |
+                  #     React frontend:
+                  #     - Components
+                  #     - State management
+                  #     - API client
+
+                  # GitHub repositories (requires GITHUB_TOKEN for private repos):
+                  # - name: shared-lib
+                  #   repo: myorg/shared-library
+                  #   ref: main                    # branch or tag
+                  #   description: |
+                  #     Shared utilities:
+                  #     - Common types
+                  #     - Helper functions
+
+                  # - name: docs
+                  #   repo: myorg/documentation
+                  #   ref: main
+                  #   description: |
+                  #     Technical documentation:
+                  #     - API specs
+                  #     - Architecture diagrams

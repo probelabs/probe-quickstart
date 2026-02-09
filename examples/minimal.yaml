@@ -1,0 +1,35 @@
+# =============================================================================
+# Minimal Assistant (~25 lines)
+# =============================================================================
+# The simplest possible assistant - just chat, no tools.
+# Great for learning the basics.
+#
+# Run:
+#   npx -y @probelabs/visor@latest run examples/minimal.yaml --message "Hello!"
+#
+# =============================================================================
+
+version: "1.0"
+
+# Required: loads the assistant workflow engine
+imports:
+  - https://raw.githubusercontent.com/probelabs/visor-ee/master/workflows/assistant.yaml
+
+checks:
+  chat:
+    type: workflow
+    workflow: assistant
+    assume: ["true"]
+    args:
+      question: "{{ conversation.current.text }}"
+
+      # Just identity - keep it simple
+      system_prompt: "You are a helpful assistant."
+
+      # One intent is enough for basic chat
+      intents:
+        - id: chat
+          description: General conversation
+
+      # No skills = no tools, just conversation
+      skills: []

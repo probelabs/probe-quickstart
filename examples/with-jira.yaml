@@ -1,0 +1,73 @@
+# =============================================================================
+# Assistant with Jira Integration
+# =============================================================================
+# Shows how to add external MCP tools via skills.
+#
+# Required in .env:
+#   JIRA_URL=https://your-org.atlassian.net
+#   JIRA_USERNAME=your-email@example.com
+#   JIRA_API_TOKEN=your-api-token
+#
+# Get API token: https://id.atlassian.com/manage-profile/security/api-tokens
+#
+# Run:
+#   npx -y @probelabs/visor@latest run examples/with-jira.yaml --message "Get ticket PROJ-123"
+#
+# =============================================================================
+
+version: "1.0"
+
+imports:
+  - https://raw.githubusercontent.com/probelabs/visor-ee/master/workflows/assistant.yaml
+
+checks:
+  chat:
+    type: workflow
+    workflow: assistant
+    assume: ["true"]
+    args:
+      question: "{{ conversation.current.text }}"
+
+      system_prompt: "You are a helpful assistant with access to Jira."
+
+      intents:
+        - id: chat
+          description: General conversation
+        - id: task
+          description: Create or update Jira tickets
+
+      skills:
+        # Jira skill - activates when user mentions tickets
+        - id: jira
+          # BE SPECIFIC about when this activates!
+          description: |
+            user mentions Jira, ticket IDs like PROJ-123, asks about tickets,
+            or needs to create/update/search tickets
+          knowledge: |
+            ## Jira Tools Available
+            - `jira_get_issue` - Get ticket details by key (e.g., PROJ-123)
+            - `jira_search` - Search tickets with JQL queries
+            - `jira_create_issue` - Create new tickets
+            - `jira_update_issue` - Update ticket fields
+            - `jira_add_comment` - Add comments to tickets
+
+            Always fetch ticket details before making updates.
+            When creating tickets, ask for project key and issue type if not specified.
+          tools:
+            # "jira" is just a name - can be anything
+            jira:
+              # Command to run the MCP server
+              command: uvx
+              args: ["mcp-atlassian"]
+              # Environment variables - ${VAR} pulls from .env
+              env:
+                JIRA_URL: "${JIRA_URL}"
+                JIRA_USERNAME: "${JIRA_USERNAME}"
+                JIRA_API_TOKEN: "${JIRA_API_TOKEN}"
+              # Security: only allow these methods
+              allowedMethods:
+                - jira_get_issue
+                - jira_search
+                - jira_create_issue
+                - jira_update_issue
+                - jira_add_comment
