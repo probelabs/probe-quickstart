@@ -280,6 +280,18 @@ description: user mentions Jira, ticket IDs like PROJ-123, or needs ticket infor
 2. Make sure you're mentioning the bot in a thread (not a channel message)
 3. Run with: `npx -y @probelabs/visor@latest run assistant.yaml --slack`
 
+## Real-World Example
+
+The **ProbeLabs assistant** — the AI bot that powers the ProbeLabs engineering team's Slack — is itself an open-source project built on this same quickstart pattern. It has 7 skills covering code exploration, GitHub access, CI/CD debugging, and automated PR creation across 15 repositories.
+
+Browse the source to see how a production assistant is structured: **[probelabs/probelabs-assistant](https://github.com/probelabs/probelabs-assistant)**
+
+It's a great reference for:
+- Organizing skills and knowledge files across `config/` and `docs/` directories
+- Wiring up workflow tools like `code-talk` and `engineer`
+- Connecting MCP tools and skill dependencies (`requires`)
+- Writing a system prompt for a team-specific assistant
+
 ## Next Steps
 
 - [Probe Labs](https://probelabs.com) — the platform
