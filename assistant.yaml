@@ -1,71 +1,35 @@
-# =============================================================================
 # Visor Quickstart Assistant
-# =============================================================================
-#
-# A complete AI assistant in a single file. Customize and run:
-#   npx -y @probelabs/visor@latest run assistant.yaml --message "Hello"
-#   npx -y @probelabs/visor@latest run assistant.yaml --slack
-#
-# =============================================================================
+# Run:  npx -y @probelabs/visor@latest run assistant.yaml --message "Hello"
+# Test: npx -y @probelabs/visor@latest test assistant.yaml
 
 version: "1.0"
 
-# =============================================================================
-# IMPORTS - Load the assistant workflow engine
-# =============================================================================
-# This provides all the "magic":
-#   - Intent classification (understands what user wants)
-#   - Skill activation (picks which tools/knowledge to use)
-#   - MCP server wiring (connects to external tools)
-#   - Built-in guidelines (output formatting, error handling)
-#
-# For offline use, download and change to: imports: ["./workflows/assistant.yaml"]
+# Imports the assistant workflow engine (intent classification, skill activation, tools)
 imports:
   - https://raw.githubusercontent.com/probelabs/visor-ee/master/workflows/assistant.yaml
 
-# =============================================================================
-# SLACK CONFIG (remove if CLI-only)
-# =============================================================================
-# Requires SLACK_BOT_TOKEN and SLACK_APP_TOKEN in .env
-# See .env.example for setup instructions
+# Slack config (remove if CLI-only)
 slack:
   version: "v1"
-  mentions: all      # Respond to @mentions
-  threads: required  # Only respond in threads (not channel messages)
+  mentions: all
+  threads: required
 
-# =============================================================================
-# MAIN WORKFLOW
-# =============================================================================
+# --- Main workflow ---
 checks:
   chat:
     type: workflow
     workflow: assistant
-    criticality: policy
     assume: ["true"]
-    guarantee: "output?.text != null"
     args:
-      # =========================================================================
-      # QUESTION - The user's message
-      # =========================================================================
-      # Automatically populated from:
-      #   - CLI: --message "your question"
-      #   - Slack: the message that mentioned the bot
-      # You don't need to change this.
       question: "{{ conversation.current.text }}"
 
-      # =========================================================================
-      # SYSTEM PROMPT - Who is your assistant?
-      # =========================================================================
-      # Keep this SHORT - just identity and domain.
-      # Operational guidelines (be helpful, cite sources, etc.) are built-in.
+      # System prompt — who is this assistant?
       system_prompt: |
-        You are a helpful AI assistant for software development.
+        You are a Probe Labs assistant helping developers understand and build
+        AI assistants with Visor. You can explore code, explain Visor concepts,
+        and demonstrate how skills, intents, and tools work together.
 
-      # =========================================================================
-      # INTENTS - High-level request categories
-      # =========================================================================
-      # Help the AI understand the TYPE of request.
-      # Skills handle the specifics - intents are just broad categories.
+      # Intents — broad request categories
       intents:
         - id: chat
           description: |
@@ -82,109 +46,61 @@ checks:
             User wants to create, update, or execute something.
             Includes creating tickets, making code changes, or running tasks.
 
-      # =========================================================================
-      # SKILLS - Your assistant's capabilities
-      # =========================================================================
-      # Each skill bundles:
-      #   - description: WHEN to activate (be specific!)
-      #   - knowledge: context injected into the prompt
-      #   - requires: other skills to auto-activate
-      #   - tools: MCP tools to enable (command, workflow, or built-in types)
-      #
-      # The AI automatically picks relevant skills based on the user's question.
-      # =========================================================================
+      # Skills — assistant capabilities that activate based on user intent
       skills:
-        # -----------------------------------------------------------------------
-        # CAPABILITIES - What can you do?
-        # -----------------------------------------------------------------------
+        # Knowledge-only skill (inline knowledge, no tools)
         - id: capabilities
           description: user asks what this assistant can do or about its capabilities
           knowledge: |
             ## What I Can Do
-            I'm an AI assistant that can help you with:
-            - **Code Exploration**: Search and understand codebases
-            - **Engineering**: Make code changes and create PRs
-            - **General Q&A**: Answer questions and have conversations
-            - **Task Execution**: Run scheduled tasks and reminders
+            I'm a Probe Labs demo assistant showcasing Visor. I can:
+            - **Explain Visor** — how skills, intents, tools, and knowledge work
+            - **Explore code** — search this quickstart repo and the Visor engine
+            - **Make changes** — create PRs and modify code via the engineer tool
+            Ask me anything about building AI assistants with Visor!
 
-            Just ask me anything!
+        # Knowledge-from-file skill (uses {% readfile %} to load docs)
+        - id: visor-guide
+          description: |
+            user asks how Visor works, how to build assistants, about skills,
+            intents, tools, knowledge, readfile, YAML config, or deployment
+          knowledge: |
+            {% readfile "docs/visor-overview.md" %}
 
-        # -----------------------------------------------------------------------
-        # CODE EXPLORER - Search and understand code
-        # -----------------------------------------------------------------------
-        # CODE EXPLORER - Search and understand code
-        # -----------------------------------------------------------------------
-        # Uses the code-talk workflow to provide code exploration capabilities.
-        # The workflow: code-talk server connects to the shared code-talk workflow.
+        # Workflow tool skill (code-talk for code exploration)
         - id: code-explorer
-          description: request needs codebase exploration, code search, or implementation details
+          description: needs codebase exploration, code search, or implementation details
           knowledge: |
             ## Code Exploration
-            You have access to a code exploration tool that can:
-            - Search across repositories for code patterns
-            - Find function/class definitions
-            - Understand how features are implemented
-            - Trace data flow between components
-
+            You can search and explore code across multiple repositories.
             Always provide specific file paths and line numbers in your answers.
           tools:
             code-explorer:
               workflow: code-talk
               inputs:
-                # Define which repositories the AI can search
                 projects:
-                  - name: this-repo
+                  - name: quickstart
                     path: .
-                    description: The current repository
-                  # Add more repositories:
-                  # - name: backend
-                  #   path: /path/to/backend
-                  #   description: Backend API server
-                  # - name: docs
-                  #   repo: myorg/docs        # GitHub repo
-                  #   ref: main               # Branch
-                  #   description: Documentation
+                    description: This quickstart repo (assistant config, docs, examples)
+                  - name: visor
+                    repo: probelabs/visor
+                    description: The Visor engine (runtime, CLI, workflows)
 
-        # -----------------------------------------------------------------------
-        # ENGINEER - Make code changes
-        # -----------------------------------------------------------------------
+        # Skill with dependency (requires code-explorer)
         - id: engineer
-          description: user wants code changes made, a PR created, or feature implemented
-          requires: [code-explorer]  # Auto-activates code-explorer
+          description: user wants code changes made, a PR created, or a feature implemented
+          requires: [code-explorer]
           knowledge: |
-            ## Engineering Tool
-            You can make code changes using the engineer tool:
-            - Create new files or modify existing ones
-            - Run tests and fix issues
-            - Create pull requests
-
-            Always explore the codebase first to understand the context,
+            ## Engineering
+            You can make code changes using the engineer tool.
+            Always explore the codebase first to understand context,
             then use the engineer tool to make changes.
           tools:
             engineer:
               workflow: engineer
               inputs: {}
 
-        # -----------------------------------------------------------------------
-        # SCHEDULER - Reminders and scheduled tasks
-        # -----------------------------------------------------------------------
-        - id: scheduler
-          description: user wants to schedule, list, or cancel reminders or scheduled tasks
-          knowledge: |
-            ## Scheduler
-            You can schedule tasks and reminders:
-            - Set one-time reminders: "remind me in 30 minutes"
-            - Set recurring tasks: "every Monday at 9am"
-            - List and cancel scheduled items
-          tools:
-            schedule:
-              tool: schedule
-
-        # =====================================================================
-        # ADD YOUR CUSTOM SKILLS BELOW
-        # =====================================================================
-        #
-        # Example: Jira integration
+        # Commented-out MCP command tool example
         # - id: jira
         #   description: user mentions Jira, ticket IDs like PROJ-123, or needs ticket info
         #   knowledge: |
@@ -204,20 +120,9 @@ checks:
         #         - jira_get_issue
         #         - jira_search
         #         - jira_create_issue
-        #
-        # Example: Knowledge-only skill (no tools)
-        # - id: company-policies
-        #   description: questions about company policies, HR, or procedures
-        #   knowledge: |
-        #     ## Company Policies
-        #     - PTO: 20 days per year
-        #     - Remote work: Flexible, coordinate with team
-        #     - Expenses: Submit within 30 days
 
-# =============================================================================
-# TESTS
-# =============================================================================
-# Run tests: npx -y @probelabs/visor@latest test assistant.yaml
+# --- Tests ---
+# Run: npx -y @probelabs/visor@latest test assistant.yaml
 tests:
   defaults:
     strict: true
@@ -249,6 +154,31 @@ tests:
               - step: chat
                 exactly: 1
 
+    - name: visor-guide
+      description: Activate visor-guide skill for Visor questions
+      flow:
+        - name: guide-flow
+          event: manual
+          fixture: local.minimal
+          routing:
+            max_loops: 0
+          execution_context:
+            conversation:
+              transport: cli
+              thread: { id: "test-2" }
+              messages: [{ role: user, text: "How do skills work in Visor?", timestamp: "2024-01-01T00:00:00Z" }]
+              current: { role: user, text: "How do skills work in Visor?", timestamp: "2024-01-01T00:00:00Z" }
+              attributes: { source: cli }
+          mocks:
+            chat[]:
+              - text: "Skills are self-contained capabilities that activate based on user intent."
+              - intent: chat
+              - skills: [visor-guide]
+          expect:
+            calls:
+              - step: chat
+                exactly: 1
+
     - name: code-exploration
       description: Activate code-explorer skill for code questions
       flow:
@@ -260,13 +190,13 @@ tests:
           execution_context:
             conversation:
               transport: cli
-              thread: { id: "test-2" }
-              messages: [{ role: user, text: "How does authentication work?", timestamp: "2024-01-01T00:00:00Z" }]
-              current: { role: user, text: "How does authentication work?", timestamp: "2024-01-01T00:00:00Z" }
+              thread: { id: "test-3" }
+              messages: [{ role: user, text: "Show me what's in assistant.yaml", timestamp: "2024-01-01T00:00:00Z" }]
+              current: { role: user, text: "Show me what's in assistant.yaml", timestamp: "2024-01-01T00:00:00Z" }
               attributes: { source: cli }
           mocks:
             chat[]:
-              - text: "Authentication is handled via JWT tokens."
+              - text: "The assistant.yaml file defines the quickstart assistant configuration."
               - intent: code_help
               - skills: [code-explorer]
           expect:
@@ -274,7 +204,7 @@ tests:
               - step: chat
                 exactly: 1
 
-    - name: capabilities-skill
+    - name: capabilities
       description: Activate capabilities skill when asked what assistant can do
       flow:
         - name: capabilities-flow
@@ -285,13 +215,13 @@ tests:
           execution_context:
             conversation:
               transport: cli
-              thread: { id: "test-3" }
+              thread: { id: "test-4" }
               messages: [{ role: user, text: "What can you help me with?", timestamp: "2024-01-01T00:00:00Z" }]
               current: { role: user, text: "What can you help me with?", timestamp: "2024-01-01T00:00:00Z" }
               attributes: { source: cli }
           mocks:
             chat[]:
-              - text: "I can help with code exploration, engineering, and more!"
+              - text: "I can help with code exploration, Visor guidance, and engineering!"
               - intent: chat
               - skills: [capabilities]
           expect:
