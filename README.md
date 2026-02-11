@@ -173,10 +173,35 @@ projects:
 
 **Add an MCP tool** — uncomment the `jira` skill in `assistant.yaml` and set credentials in `.env`.
 
-**Connect to Slack** — set `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` in `.env`, then:
+## Connect to Slack
+
+Turn this assistant into a Slack bot your whole team can talk to.
+
+**1. Create a Slack app** at [api.slack.com/apps](https://api.slack.com/apps):
+- Enable **Socket Mode** (Settings → Socket Mode → Enable)
+- Under **OAuth & Permissions**, add these Bot Token Scopes:
+  `app_mentions:read`, `channels:history`, `groups:history`, `im:history`, `mpim:history`, `chat:write`, `reactions:read`, `reactions:write`, `im:read`, `im:write`
+- Under **Event Subscriptions**, subscribe to bot events:
+  `app_mention`, `message.channels`, `message.groups`, `message.im`, `message.mpim`
+- Install the app to your workspace
+
+**2. Grab two tokens** and add them to `.env`:
+```bash
+# Bot token (OAuth & Permissions → Bot User OAuth Token)
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+
+# App token (Basic Information → App-Level Tokens → create one with connections:write scope)
+SLACK_APP_TOKEN=xapp-your-app-token
+```
+
+**3. Run it:**
 ```bash
 npx -y @probelabs/visor@latest run assistant.yaml --slack
 ```
+
+Mention your bot in any Slack thread and it will respond. The `slack` section in `assistant.yaml` controls behavior — `threads: required` means it only responds in threads, not top-level channel messages.
+
+For a full walkthrough, see the [Build a Slack Bot](https://probelabs.com/docs/guides/slack-bot) guide.
 
 ## Run Tests
 
