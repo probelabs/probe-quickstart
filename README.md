@@ -211,6 +211,14 @@ npx -y @probelabs/visor@latest test assistant.yaml
 
 Tests verify that intent classification routes to the correct skills. See the `tests` section at the bottom of `assistant.yaml`.
 
+## Lint
+
+Validate your configuration for schema errors and missing fields:
+
+```bash
+npx -y @probelabs/visor@latest validate assistant.yaml
+```
+
 ## Examples
 
 | File | What it shows |
