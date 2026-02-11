@@ -1,52 +1,147 @@
-# Visor Quickstart
+# Probe Quickstart
 
-**Visor** is a YAML-first framework for building AI assistants. Define skills, tools, and knowledge in a single file — Visor handles intent classification, skill activation, and response generation.
+Half your team's time goes to finding things that already exist — in code, in tickets, in docs. Engineers context-switch between GitHub, Jira, Slack, and Confluence just to answer "where is this implemented?" or "what's the status of that feature?"
 
-This quickstart gives you a working assistant you can run in under a minute.
+**Probe** fixes this. It's an AI agent that connects to your codebase, tickets, docs, and tools — then answers questions, explores code, makes changes, and automates workflows. You define everything in YAML. No custom code, no vendor lock-in, any LLM provider.
+
+This quickstart gives you a working assistant in under a minute. Here's the entire config:
+
+```yaml
+version: "1.0"
+
+# Import the assistant engine (intent classification, skill activation, tools)
+imports:
+  - https://raw.githubusercontent.com/probelabs/visor-ee/master/workflows/assistant.yaml
+
+# Slack config (remove if CLI-only)
+slack:
+  version: "v1"
+  mentions: all
+  threads: required
+
+checks:
+  chat:
+    type: workflow
+    workflow: assistant
+    assume: ["true"]
+    args:
+      question: "{{ conversation.current.text }}"
+
+      system_prompt: |
+        You are a Probe Labs assistant helping developers understand and build
+        AI assistants with Visor. You can explore code, explain Visor concepts,
+        and demonstrate how skills, intents, and tools work together.
+
+      # Intents — broad request categories for routing
+      intents:
+        - id: chat
+          description: General Q&A, follow-up questions, small talk
+        - id: code_help
+          description: Questions about code, implementation, or architecture
+        - id: task
+          description: Create, update, or execute something
+
+      # Skills — capabilities that activate based on what the user asks
+      skills:
+        # Inline knowledge (no tools)
+        - id: capabilities
+          description: user asks what this assistant can do
+          knowledge: |
+            I can explain Visor, explore code across repos, and make changes via PRs.
+
+        # Knowledge loaded from file via {% readfile %}
+        - id: visor-guide
+          description: questions about how Visor works, skills, intents, tools, or YAML config
+          knowledge: |
+            {% readfile "docs/visor-overview.md" %}
+
+        # Workflow tool — code search across repos
+        - id: code-explorer
+          description: needs codebase exploration, code search, or implementation details
+          tools:
+            code-explorer:
+              workflow: code-talk
+              inputs:
+                projects:
+                  - name: quickstart
+                    path: .
+                  - name: visor
+                    repo: probelabs/visor
+
+        # Skill with dependency — auto-activates code-explorer
+        - id: engineer
+          description: user wants code changes, a PR, or a feature implemented
+          requires: [code-explorer]
+          tools:
+            engineer:
+              workflow: engineer
+              inputs: {}
+
+        # MCP tool (uncomment + set JIRA_* in .env)
+        # - id: jira
+        #   description: user mentions Jira or ticket IDs like PROJ-123
+        #   tools:
+        #     jira:
+        #       command: uvx
+        #       args: ["mcp-atlassian"]
+        #       env:
+        #         JIRA_URL: "${JIRA_URL}"
+        #         JIRA_API_TOKEN: "${JIRA_API_TOKEN}"
+        #       allowedMethods: [jira_get_issue, jira_search, jira_create_issue]
+```
+
+That's it. One file. Skills, tools, knowledge, and routing — all declared in YAML.
 
 ## Quick Start
 
 ```bash
-# Clone and enter
 git clone https://github.com/probelabs/visor-quickstart.git
 cd visor-quickstart
-
-# Set up environment
 cp .env.example .env
 # Edit .env — uncomment and set ANTHROPIC_API_KEY (or another provider)
+```
 
-# Run it
+Run a single message:
+```bash
 npx -y @probelabs/visor@latest run assistant.yaml --message "What can you do?"
+```
+
+Or launch the interactive TUI for a chat session:
+```bash
+npx -y @probelabs/visor@latest run assistant.yaml --tui
 ```
 
 ## What Just Happened?
 
-When you sent that message, Visor ran this pipeline:
+When you sent a message, Probe ran this pipeline:
 
-1. **Intent classification** — determined this is a `chat` request
-2. **Skill selection** — matched the `capabilities` skill based on "what can you do"
-3. **Knowledge injection** — added the skill's knowledge block to the AI's context
-4. **Response generation** — the AI answered using the injected context
+1. **Intent classification** — determined the request type (`chat`, `code_help`, or `task`)
+2. **Skill selection** — matched relevant skills based on their `description` fields
+3. **Dependency expansion** — skills with `requires` pulled in other skills automatically
+4. **Knowledge + tool injection** — activated skills' knowledge and tools were added to the AI's context
+5. **Response** — the AI answered using the assembled context, calling tools if needed
 
-All of this is defined in `assistant.yaml` — open it and read along.
+Everything above is defined in `assistant.yaml`. Open it and read along.
 
 ## Try These
 
 Each message activates a different skill:
 
 ```bash
-# capabilities skill — inline knowledge
+# capabilities — inline knowledge, no tools
 npx -y @probelabs/visor@latest run assistant.yaml --message "What can you help me with?"
 
-# visor-guide skill — knowledge loaded from docs/visor-overview.md via {% readfile %}
+# visor-guide — knowledge loaded from docs/visor-overview.md
 npx -y @probelabs/visor@latest run assistant.yaml --message "How do skills work in Visor?"
 
-# code-explorer skill — workflow tool (code-talk)
+# code-explorer — searches code across repos
 npx -y @probelabs/visor@latest run assistant.yaml --message "Show me what's in assistant.yaml"
 
-# engineer skill — requires code-explorer, so both activate
+# engineer — requires code-explorer, so both activate
 npx -y @probelabs/visor@latest run assistant.yaml --message "Add a comment to the top of README.md"
 ```
+
+Or try them all interactively: `npx -y @probelabs/visor@latest run assistant.yaml --tui`
 
 ## Customize It
 
@@ -77,6 +172,11 @@ projects:
 ```
 
 **Add an MCP tool** — uncomment the `jira` skill in `assistant.yaml` and set credentials in `.env`.
+
+**Connect to Slack** — set `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` in `.env`, then:
+```bash
+npx -y @probelabs/visor@latest run assistant.yaml --slack
+```
 
 ## Run Tests
 
@@ -133,7 +233,8 @@ description: user mentions Jira, ticket IDs like PROJ-123, or needs ticket infor
 
 ## Next Steps
 
-- [Visor documentation](https://github.com/probelabs/visor) — full reference
+- [Probe Labs](https://probelabs.com) — the platform
+- [Visor documentation](https://github.com/probelabs/visor) — workflow engine reference
 - [visor-ee workflows](https://github.com/probelabs/visor-ee) — the assistant engine this quickstart imports
 - Questions? Open an issue or contact hello@probelabs.com
 
