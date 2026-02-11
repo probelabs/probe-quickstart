@@ -101,14 +101,20 @@ cp .env.example .env
 # Edit .env — uncomment and set ANTHROPIC_API_KEY (or another provider)
 ```
 
-Run a single message:
-```bash
-npx -y @probelabs/visor@latest run assistant.yaml --message "What can you do?"
-```
-
-Or launch the interactive TUI for a chat session:
+Launch the interactive TUI (recommended):
 ```bash
 npx -y @probelabs/visor@latest run assistant.yaml --tui
+```
+
+The TUI gives you a full chat interface with real-time visibility into what the assistant is doing. Press **Shift+Tab** to cycle through three views:
+
+- **Chat** — the conversation with your assistant
+- **Logs** — runtime logs showing intent classification, skill activation, and tool calls
+- **Trace** — detailed execution trace for debugging pipelines and workflows
+
+Or send a single message from the command line with `--message`:
+```bash
+npx -y @probelabs/visor@latest run assistant.yaml --message "What can you do?"
 ```
 
 ## What Just Happened?
@@ -125,7 +131,7 @@ Everything above is defined in `assistant.yaml`. Open it and read along.
 
 ## Try These
 
-Each message activates a different skill:
+Each message activates a different skill. Try them in the TUI (`--tui`) or pass them with `--message`:
 
 ```bash
 # capabilities — inline knowledge, no tools
@@ -141,7 +147,7 @@ npx -y @probelabs/visor@latest run assistant.yaml --message "Show me what's in a
 npx -y @probelabs/visor@latest run assistant.yaml --message "Add a comment to the top of README.md"
 ```
 
-Or try them all interactively: `npx -y @probelabs/visor@latest run assistant.yaml --tui`
+The `--message` flag is useful for scripting, CI pipelines, or quick one-off questions. For interactive exploration, use `--tui` instead.
 
 ## Customize It
 
@@ -203,13 +209,23 @@ Mention your bot in any Slack thread and it will respond. The `slack` section in
 
 For a full walkthrough, see the [Build a Slack Bot](https://probelabs.com/docs/guides/slack-bot) guide.
 
-## Run Tests
+## Test & Lint
+
+**Run tests** to verify that intent classification routes to the correct skills:
 
 ```bash
 npx -y @probelabs/visor@latest test assistant.yaml
 ```
 
-Tests verify that intent classification routes to the correct skills. See the `tests` section at the bottom of `assistant.yaml`.
+Each test case in the `tests` section of `assistant.yaml` sends a mock message and asserts which intents and skills activate. Use this to catch routing regressions when you add or edit skills.
+
+**Lint your configuration** to catch YAML syntax errors, missing fields, and invalid references before running:
+
+```bash
+npx -y @probelabs/visor@latest lint assistant.yaml
+```
+
+Lint checks for common issues like misspelled skill IDs in `requires`, missing `description` fields, and invalid workflow references. Run it after every config change — it's instant and saves debugging time.
 
 ## Examples
 
