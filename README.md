@@ -67,6 +67,7 @@ checks:
                     path: .
                   - name: visor
                     repo: probelabs/visor
+          allowed_commands: ['git:log:*', 'git:show:*', 'git:diff:*']
 
         # Skill with dependency — auto-activates code-explorer
         - id: engineer
@@ -76,6 +77,8 @@ checks:
             engineer:
               workflow: engineer
               inputs: {}
+          allowed_commands: ['git:*', 'npm:*']
+          disallowed_commands: ['git:push:--force', 'git:reset:--hard']
 
         # MCP tool (uncomment + set JIRA_* in .env)
         # - id: jira
@@ -169,6 +172,14 @@ projects:
   description: questions about onboarding, setup, or getting started
   knowledge: |
     {% readfile "docs/onboarding-guide.md" %}
+```
+
+**Control bash commands per skill** — restrict what each skill can run:
+```yaml
+- id: diagnostics
+  description: user needs system diagnostics or health checks
+  allowed_commands: ['docker:ps', 'docker:logs:*']
+  disallowed_commands: ['docker:rm:*', 'docker:stop:*']
 ```
 
 **Add an MCP tool** — uncomment the `jira` skill in `assistant.yaml` and set credentials in `.env`.
