@@ -19,6 +19,7 @@ checks:
   chat:
     type: workflow
     workflow: assistant
+    criticality: internal
     assume: ["true"]
     args:
       question: "{{ conversation.current.text }}"
