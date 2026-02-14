@@ -176,10 +176,10 @@ projects:
 
 **Control bash commands per skill** — restrict what each skill can run:
 ```yaml
-- id: diagnostics
-  description: user needs system diagnostics or health checks
-  allowed_commands: ['docker:ps', 'docker:logs:*']
-  disallowed_commands: ['docker:rm:*', 'docker:stop:*']
+- id: devops
+  description: user needs container management or deployment help
+  allowed_commands: ['docker:*', 'kubectl:get:*']
+  disallowed_commands: ['docker:rm:--force', 'docker:system:prune', 'kubectl:delete:*']
 ```
 
 **Add an MCP tool** — uncomment the `jira` skill in `assistant.yaml` and set credentials in `.env`.
