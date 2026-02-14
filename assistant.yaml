@@ -19,6 +19,7 @@ checks:
   chat:
     type: workflow
     workflow: assistant
+    criticality: internal
     assume: ["true"]
     args:
       question: "{{ conversation.current.text }}"
@@ -85,6 +86,11 @@ checks:
                   - name: visor
                     repo: probelabs/visor
                     description: The Visor engine (runtime, CLI, workflows)
+          # Bash commands this skill can run (read-only git operations)
+          allowed_commands:
+            - "git:log:*"
+            - "git:show:*"
+            - "git:diff:*"
 
         # Skill with dependency (requires code-explorer)
         - id: engineer
@@ -99,6 +105,13 @@ checks:
             engineer:
               workflow: engineer
               inputs: {}
+          # Bash commands: allow git operations but block destructive ones
+          allowed_commands:
+            - "git:*"
+            - "npm:*"
+          disallowed_commands:
+            - "git:push:--force"
+            - "git:reset:--hard"
 
         # Commented-out MCP command tool example
         # - id: jira

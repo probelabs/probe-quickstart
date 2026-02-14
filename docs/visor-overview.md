@@ -17,8 +17,10 @@ A skill is a self-contained capability. Each skill has:
 - **`knowledge`** (optional) — context injected into the AI's prompt when activated
 - **`requires`** (optional) — other skill IDs to co-activate
 - **`tools`** (optional) — external tools the AI can call
+- **`allowed_commands`** (optional) — bash command patterns this skill may run (e.g., `['git:log:*']`)
+- **`disallowed_commands`** (optional) — bash command patterns this skill must not run (e.g., `['git:push:--force']`)
 
-Skills activate automatically — Visor classifies the user's intent and selects relevant skills based on their descriptions.
+Skills activate automatically — Visor classifies the user's intent and selects relevant skills based on their descriptions. When activated, each skill's bash command permissions are collected and applied to the AI agent dynamically.
 
 ### Intents
 Intents are broad routing categories like `chat`, `code_help`, or `task`. They help Visor understand the *type* of request before selecting specific skills. Keep intents general; skills handle specifics.
