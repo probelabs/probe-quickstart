@@ -76,6 +76,7 @@ checks:
             You can search and explore code across multiple repositories.
             Always provide specific file paths and line numbers in your answers.
           tools:
+            bash: {}
             code-explorer:
               workflow: code-talk
               inputs:
@@ -102,6 +103,7 @@ checks:
             Always explore the codebase first to understand context,
             then use the engineer tool to make changes.
           tools:
+            bash: {}
             engineer:
               workflow: engineer
               inputs: {}
