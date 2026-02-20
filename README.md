@@ -4,7 +4,7 @@ Half your team's time goes to finding things that already exist — in code, in 
 
 **Probe** fixes this. It's an AI agent that connects to your codebase, tickets, docs, and tools — then answers questions, explores code, makes changes, and automates workflows. You define everything in YAML. No custom code, no vendor lock-in, any LLM provider.
 
-This quickstart gives you a working assistant in under a minute. Here's the entire config:
+This quickstart gives you a working assistant in under a minute. Here's a simplified version of the config (full version in assistant.yaml):
 
 ```yaml
 version: "1.0"
@@ -29,7 +29,7 @@ checks:
 
       system_prompt: |
         You are a Probe Labs assistant helping developers understand and build
-        AI assistants with Visor. You can explore code, explain Visor concepts,
+        AI assistants with Probe. You can explore code, explain how assistants work,
         and demonstrate how skills, intents, and tools work together.
 
       # Intents — broad request categories for routing
@@ -47,13 +47,13 @@ checks:
         - id: capabilities
           description: user asks what this assistant can do
           knowledge: |
-            I can explain Visor, explore code across repos, and make changes via PRs.
+            I can explain Probe, explore code across repos, and make changes via PRs.
 
         # Knowledge loaded from file via {% readfile %}
-        - id: visor-guide
-          description: questions about how Visor works, skills, intents, tools, or YAML config
+        - id: probe-guide
+          description: questions about how Probe works, skills, intents, tools, or YAML config
           knowledge: |
-            {% readfile "docs/visor-overview.md" %}
+            {% readfile "docs/probe-overview.md" %}
 
         # Workflow tool — code search across repos
         - id: code-explorer
@@ -65,7 +65,7 @@ checks:
                 projects:
                   - name: quickstart
                     path: .
-                  - name: visor
+                  - name: probe
                     repo: probelabs/visor
           allowed_commands: ['git:log:*', 'git:show:*', 'git:diff:*']
 
@@ -96,6 +96,8 @@ checks:
 That's it. One file. Skills, tools, knowledge, and routing — all declared in YAML.
 
 ## Quick Start
+
+**Prerequisites:** [Node.js](https://nodejs.org/) >= 18
 
 ```bash
 git clone https://github.com/probelabs/visor-quickstart.git
@@ -140,8 +142,8 @@ Each message activates a different skill. Try them in the TUI (`--tui`) or pass 
 # capabilities — inline knowledge, no tools
 npx -y @probelabs/visor@latest run assistant.yaml --message "What can you help me with?"
 
-# visor-guide — knowledge loaded from docs/visor-overview.md
-npx -y @probelabs/visor@latest run assistant.yaml --message "How do skills work in Visor?"
+# probe-guide — knowledge loaded from docs/probe-overview.md
+npx -y @probelabs/visor@latest run assistant.yaml --message "How do skills work in Probe?"
 
 # code-explorer — searches code across repos
 npx -y @probelabs/visor@latest run assistant.yaml --message "Show me what's in assistant.yaml"
@@ -238,14 +240,6 @@ npx -y @probelabs/visor@latest lint assistant.yaml
 
 Lint checks for common issues like misspelled skill IDs in `requires`, missing `description` fields, and invalid workflow references. Run it after every config change — it's instant and saves debugging time.
 
-## Lint
-
-Validate your configuration for schema errors and missing fields:
-
-```bash
-npx -y @probelabs/visor@latest validate assistant.yaml
-```
-
 ## Examples
 
 | File | What it shows |
@@ -306,8 +300,8 @@ It's a great reference for:
 ## Next Steps
 
 - [Probe Labs](https://probelabs.com) — the platform
-- [Visor documentation](https://github.com/probelabs/visor) — workflow engine reference
-- [visor-ee workflows](https://github.com/probelabs/visor-ee) — the assistant engine this quickstart imports
+- [Probe engine](https://github.com/probelabs/visor) — runtime and CLI reference
+- [Assistant workflows](https://github.com/probelabs/visor-ee) — the workflow engine this quickstart imports
 - Questions? Open an issue or contact hello@probelabs.com
 
 ## License

@@ -1,6 +1,6 @@
-# Visor Overview
+# Probe Overview
 
-Visor is a YAML-first framework for building AI assistants. You define your assistant's identity, skills, and tools in a single configuration file, and Visor handles intent classification, skill activation, tool orchestration, and response generation.
+Probe is a YAML-first platform for building AI assistants. You define your assistant's identity, skills, and tools in a single configuration file, and Probe handles intent classification, skill activation, tool orchestration, and response generation.
 
 ## Key Concepts
 
@@ -20,15 +20,15 @@ A skill is a self-contained capability. Each skill has:
 - **`allowed_commands`** (optional) — bash command patterns this skill may run (e.g., `['git:log:*']`)
 - **`disallowed_commands`** (optional) — bash command patterns this skill must not run (e.g., `['git:push:--force']`)
 
-Skills activate automatically — Visor classifies the user's intent and selects relevant skills based on their descriptions. When activated, each skill's bash command permissions are collected and applied to the AI agent dynamically.
+Skills activate automatically — Probe classifies the user's intent and selects relevant skills based on their descriptions. When activated, each skill's bash command permissions are collected and applied to the AI agent dynamically.
 
 ### Intents
-Intents are broad routing categories like `chat`, `code_help`, or `task`. They help Visor understand the *type* of request before selecting specific skills. Keep intents general; skills handle specifics.
+Intents are broad routing categories like `chat`, `code_help`, or `task`. They help Probe understand the *type* of request before selecting specific skills. Keep intents general; skills handle specifics.
 
 ### Tools
 Skills can include tools of three types:
 
-1. **Workflow tools** — call another Visor workflow (e.g., `code-talk` for code exploration, `engineer` for code changes)
+1. **Workflow tools** — call another workflow (e.g., `code-talk` for code exploration, `engineer` for code changes)
    ```yaml
    tools:
      code-explorer:
@@ -50,7 +50,7 @@ Skills can include tools of three types:
        allowedMethods: [jira_get_issue, jira_search]
    ```
 
-3. **Built-in tools** — tools provided by the Visor runtime
+3. **Built-in tools** — tools provided by the Probe runtime
    ```yaml
    tools:
      scheduler:
@@ -73,7 +73,7 @@ knowledge: |
 The `{% readfile %}` directive loads file contents at runtime, keeping your YAML clean and your knowledge docs easy to maintain separately.
 
 ## Imports
-Assistants import workflow definitions — typically the `assistant.yaml` workflow from `visor-ee`, which provides the intent classification and skill activation engine:
+Assistants import workflow definitions — typically the `assistant.yaml` workflow, which provides the intent classification and skill activation engine:
 
 ```yaml
 imports:
@@ -94,7 +94,7 @@ imports:
 ## Runtime Flow
 
 When a user sends a message:
-1. **Intent classification** — Visor determines the request type
+1. **Intent classification** — Probe determines the request type
 2. **Skill selection** — relevant skills activate based on their descriptions
 3. **Dependency expansion** — `requires` fields pull in additional skills
 4. **Tool + knowledge injection** — activated skills' tools and knowledge are added to the AI's context

@@ -1,4 +1,4 @@
-# Visor Quickstart Assistant
+# Probe Quickstart Assistant
 # Run:  npx -y @probelabs/visor@latest run assistant.yaml --message "Hello"
 # Test: npx -y @probelabs/visor@latest test assistant.yaml
 
@@ -27,7 +27,7 @@ checks:
       # System prompt — who is this assistant?
       system_prompt: |
         You are a Probe Labs assistant helping developers understand and build
-        AI assistants with Visor. You can explore code, explain Visor concepts,
+        AI assistants with Probe. You can explore code, explain how assistants work,
         and demonstrate how skills, intents, and tools work together.
 
       # Intents — broad request categories
@@ -54,19 +54,19 @@ checks:
           description: user asks what this assistant can do or about its capabilities
           knowledge: |
             ## What I Can Do
-            I'm a Probe Labs demo assistant showcasing Visor. I can:
-            - **Explain Visor** — how skills, intents, tools, and knowledge work
-            - **Explore code** — search this quickstart repo and the Visor engine
+            I'm a Probe Labs demo assistant showcasing Probe. I can:
+            - **Explain Probe** — how skills, intents, tools, and knowledge work
+            - **Explore code** — search this quickstart repo and the Probe engine
             - **Make changes** — create PRs and modify code via the engineer tool
-            Ask me anything about building AI assistants with Visor!
+            Ask me anything about building AI assistants with Probe!
 
         # Knowledge-from-file skill (uses {% readfile %} to load docs)
-        - id: visor-guide
+        - id: probe-guide
           description: |
-            user asks how Visor works, how to build assistants, about skills,
+            user asks how Probe works, how to build assistants, about skills,
             intents, tools, knowledge, readfile, YAML config, or deployment
           knowledge: |
-            {% readfile "docs/visor-overview.md" %}
+            {% readfile "docs/probe-overview.md" %}
 
         # Workflow tool skill (code-talk for code exploration)
         - id: code-explorer
@@ -84,9 +84,9 @@ checks:
                   - name: quickstart
                     path: .
                     description: This quickstart repo (assistant config, docs, examples)
-                  - name: visor
+                  - name: probe
                     repo: probelabs/visor
-                    description: The Visor engine (runtime, CLI, workflows)
+                    description: The Probe engine (runtime, CLI, workflows)
           # Bash commands this skill can run (read-only git operations)
           allowed_commands:
             - "git:log:*"
@@ -169,8 +169,8 @@ tests:
               - step: chat
                 exactly: 1
 
-    - name: visor-guide
-      description: Activate visor-guide skill for Visor questions
+    - name: probe-guide
+      description: Activate probe-guide skill for Probe questions
       flow:
         - name: guide-flow
           event: manual
@@ -181,14 +181,14 @@ tests:
             conversation:
               transport: cli
               thread: { id: "test-2" }
-              messages: [{ role: user, text: "How do skills work in Visor?", timestamp: "2024-01-01T00:00:00Z" }]
-              current: { role: user, text: "How do skills work in Visor?", timestamp: "2024-01-01T00:00:00Z" }
+              messages: [{ role: user, text: "How do skills work in Probe?", timestamp: "2024-01-01T00:00:00Z" }]
+              current: { role: user, text: "How do skills work in Probe?", timestamp: "2024-01-01T00:00:00Z" }
               attributes: { source: cli }
           mocks:
             chat[]:
               - text: "Skills are self-contained capabilities that activate based on user intent."
               - intent: chat
-              - skills: [visor-guide]
+              - skills: [probe-guide]
           expect:
             calls:
               - step: chat
@@ -236,7 +236,7 @@ tests:
               attributes: { source: cli }
           mocks:
             chat[]:
-              - text: "I can help with code exploration, Visor guidance, and engineering!"
+              - text: "I can help with code exploration, Probe guidance, and engineering!"
               - intent: chat
               - skills: [capabilities]
           expect:

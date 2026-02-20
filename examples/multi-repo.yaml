@@ -40,12 +40,12 @@ checks:
                   # Local: this quickstart repo
                   - name: quickstart
                     path: .
-                    description: Visor quickstart (assistant config, docs, examples)
+                    description: Probe quickstart (assistant config, docs, examples)
 
-                  # GitHub: the Visor engine
-                  - name: visor
+                  # GitHub: the Probe engine
+                  - name: probe
                     repo: probelabs/visor
-                    description: Visor runtime, CLI, and core workflows
+                    description: Probe runtime, CLI, and core workflows
 
                   # Add your own repos:
                   # - name: backend
