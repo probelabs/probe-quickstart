@@ -13,7 +13,7 @@ version: "1.0"
 
 # Required: loads the assistant workflow engine
 imports:
-  - https://raw.githubusercontent.com/probelabs/visor-ee/master/workflows/assistant.yaml
+  - visor://assistant.yaml
 
 checks:
   chat:

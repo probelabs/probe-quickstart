@@ -11,7 +11,7 @@ version: "1.0"
 
 # Import the assistant engine (intent classification, skill activation, tools)
 imports:
-  - https://raw.githubusercontent.com/probelabs/visor-ee/master/workflows/assistant.yaml
+  - visor://assistant.yaml
 
 # Slack config (remove if CLI-only)
 slack:
@@ -258,9 +258,10 @@ grep API_KEY .env
 ```
 
 ### "Unable to fetch workflow" or network errors
-The imports URL must be accessible. To work offline:
+The built-in `visor://` workflows are bundled with visor and resolve locally — no network needed.
+If you prefer a local copy:
 ```bash
-curl -o workflows/assistant.yaml https://raw.githubusercontent.com/probelabs/visor-ee/master/workflows/assistant.yaml
+cp node_modules/visor/workflows/assistant.yaml workflows/assistant.yaml
 ```
 Then change imports to: `imports: ["./workflows/assistant.yaml"]`
 
@@ -301,7 +302,7 @@ It's a great reference for:
 
 - [Probe Labs](https://probelabs.com) — the platform
 - [Probe engine](https://github.com/probelabs/visor) — runtime and CLI reference
-- [Assistant workflows](https://github.com/probelabs/visor-ee) — the workflow engine this quickstart imports
+- [Assistant workflows](https://github.com/probelabs/visor) — the workflow engine this quickstart imports (bundled in visor)
 - Questions? Open an issue or contact hello@probelabs.com
 
 ## License

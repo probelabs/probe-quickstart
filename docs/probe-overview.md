@@ -77,7 +77,7 @@ Assistants import workflow definitions — typically the `assistant.yaml` workfl
 
 ```yaml
 imports:
-  - https://raw.githubusercontent.com/probelabs/visor-ee/master/workflows/assistant.yaml
+  - visor://assistant.yaml
 ```
 
 ## Deployment Modes

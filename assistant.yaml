@@ -6,7 +6,7 @@ version: "1.0"
 
 # Imports the assistant workflow engine (intent classification, skill activation, tools)
 imports:
-  - https://raw.githubusercontent.com/probelabs/visor-ee/master/workflows/assistant.yaml
+  - visor://assistant.yaml
 
 # Slack config (remove if CLI-only)
 slack:
